@@ -24,7 +24,7 @@
 // from commandline.c
 void output_buffer(FILE * stream, uint8_t * buffer, int length, int indent);
 
-int create_socket(const char * portStr, int addressFamily)
+int create_socket(const char * portStr, int addressFamily, int sockType)
 {
     int s = -1;
     struct addrinfo hints;
@@ -35,6 +35,11 @@ int create_socket(const char * portStr, int addressFamily)
     hints.ai_family = addressFamily;
     hints.ai_socktype = SOCK_DGRAM;
     hints.ai_flags = AI_PASSIVE;
+
+    if (sockType)
+    {
+        hints.ai_socktype = sockType;
+    }
 
     if (0 != getaddrinfo(NULL, portStr, &hints, &res))
     {

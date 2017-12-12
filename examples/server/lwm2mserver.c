@@ -73,6 +73,8 @@
 #include "commandline.h"
 #include "connection.h"
 
+#include "api.h"
+
 #define MAX_PACKET_SIZE 1024
 
 static int g_quit = 0;
@@ -906,7 +908,7 @@ int main(int argc, char *argv[])
         opt += 1;
     }
 
-    sock = create_socket(localPort, addressFamily);
+    sock = create_socket(localPort, addressFamily, SOCK_DGRAM);
     if (sock < 0)
     {
         fprintf(stderr, "Error opening socket: %d\r\n", errno);
@@ -922,6 +924,8 @@ int main(int argc, char *argv[])
 
     signal(SIGINT, handle_sigint);
 
+    //create_api();
+
     for (i = 0 ; commands[i].name != NULL ; i++)
     {
         commands[i].userData = (void *)lwm2mH;
@@ -930,22 +934,27 @@ int main(int argc, char *argv[])
 
     lwm2m_set_monitoring_callback(lwm2mH, prv_monitor_callback, lwm2mH);
 
+    // int digicard = 0;
+    // int digicard_ = 0;
+
     while (0 == g_quit)
     {
+        api_new_connection();
+        
         FD_ZERO(&readfds);
         FD_SET(sock, &readfds);
         FD_SET(STDIN_FILENO, &readfds);
 
-        tv.tv_sec = 60;
+        tv.tv_sec = 1;
         tv.tv_usec = 0;
-
+        
         result = lwm2m_step(lwm2mH, &(tv.tv_sec));
         if (result != 0)
         {
             fprintf(stderr, "lwm2m_step() failed: 0x%X\r\n", result);
             return -1;
         }
-
+        
         result = select(FD_SETSIZE, &readfds, 0, 0, &tv);
 
         if ( result < 0 )
@@ -1002,18 +1011,26 @@ int main(int argc, char *argv[])
                         if (connP != NULL)
                         {
                             connList = connP;
+                            // digicard = digicard + 1;
                         }
                     }
                     if (connP != NULL)
                     {
                         lwm2m_handle_packet(lwm2mH, buffer, numBytes, connP);
                     }
+
+                    // if (connP != NULL && digicard != digicard_)
+                    // {
+                        // sprintf(buffer, "observe %d /31024/10/1", digicard_);
+                        // handle_command(commands, buffer);
+                        // digicard_ = digicard;
+                    // }
                 }
             }
             else if (FD_ISSET(STDIN_FILENO, &readfds))
             {
                 numBytes = read(STDIN_FILENO, buffer, MAX_PACKET_SIZE - 1);
-
+                
                 if (numBytes > 1)
                 {
                     buffer[numBytes] = 0;
@@ -1031,8 +1048,12 @@ int main(int argc, char *argv[])
                 }
             }
         }
+
+        api_get_message();
     }
 
+    close_api();
+    close_client_api();
     lwm2m_close(lwm2mH);
     close(sock);
     connection_free(connList);

@@ -5,7 +5,8 @@ set(SHARED_SOURCES_DIR ${CMAKE_CURRENT_LIST_DIR})
 set(SHARED_SOURCES 
     ${SHARED_SOURCES_DIR}/commandline.c
     ${SHARED_SOURCES_DIR}/platform.c
-	${SHARED_SOURCES_DIR}/memtrace.c)
+	${SHARED_SOURCES_DIR}/memtrace.c
+	${SHARED_SOURCES_DIR}/api.c)
 
 if(DTLS)
     include(${CMAKE_CURRENT_LIST_DIR}/tinydtls.cmake)

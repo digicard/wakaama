@@ -97,8 +97,9 @@ void handle_command(command_desc_t * commandArray,
     length = 0;
     while (buffer[length] != 0 && !isspace(buffer[length]&0xFF))
         length++;
-
+    
     cmdP = prv_find_command(commandArray, buffer, length);
+
     if (cmdP != NULL)
     {
         while (buffer[length] != 0 && isspace(buffer[length]&0xFF))
