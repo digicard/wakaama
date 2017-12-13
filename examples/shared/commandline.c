@@ -183,7 +183,7 @@ void output_buffer(FILE * stream,
     if (length == 0) fprintf(stream, "\n");
 
     if (buffer == NULL) return;
-
+    
     i = 0;
     while (i < length)
     {

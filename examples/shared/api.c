@@ -6,32 +6,31 @@
 #include <inttypes.h>
 #include "liblwm2m.h"
 #include <errno.h>
+#include <fcntl.h>
 
 #include "connection.h"
 #include "api.h"
 
-static api_handler api;
+api_handler * create_api(){
 
-int create_api(){
+	api_handler * _api;
+	
+	_api = (api_handler *)malloc(sizeof(api_handler));
 
 	int addressFamily = AF_INET;
 	const char * localPort = "5693";
 
-	api.sock = create_socket(localPort, addressFamily, SOCK_STREAM);
+	_api->sock = create_socket(localPort, addressFamily, SOCK_STREAM);
+	_api->sock_client = -1;
 	
-	if (api.sock < 0)
-    {
-        fprintf(stderr, "Error opening socket: %d\r\n", errno);
-        return -1;
-    }
-    else
-    {
-    	listen(api.sock,3);
-    }
+	if (_api->sock > 0)
+        listen(_api->sock,3);
+
+    return _api;
 
 }
 
-int api_new_connection(){
+int api_new_connection( api_handler * api){
 
 	struct sockaddr_in cli_addr;
 	socklen_t clilen;
@@ -43,9 +42,9 @@ int api_new_connection(){
 	const sigset_t sigmask;				//	Puntero a la mascara de la señal del socket leido
 
     FD_ZERO (&readfds);
-	FD_SET (api.sock, &readfds);
+	FD_SET (api->sock, &readfds);
 
-	scount = api.sock+1;
+	scount = api->sock+1;
 	timeout.tv_sec = 0;
 	timeout.tv_nsec = 1;
 	status_select = pselect (scount,
@@ -55,47 +54,81 @@ int api_new_connection(){
 			 	&timeout,
 			 	&sigmask);
 
-	if ( status_select > 0 && FD_ISSET ( api.sock, &readfds) ) {
-		printf("Ok api\n");
+	if ( status_select > 0 && FD_ISSET ( api->sock, &readfds) ) {
 		clilen = sizeof(cli_addr);
-    	api.sock_client = accept(api.sock, (struct sockaddr *) &cli_addr, &clilen);
+    	api->sock_client = accept(api->sock, (struct sockaddr *) &cli_addr, &clilen);
 
-    	if (api.sock_client < 0)
+    	if (api->sock_client < 0)
     	{
     		fprintf(stderr, "Error opening socket: %d\r\n", errno);
+    	}else{
+    		fcntl(api->sock_client, F_SETFL, O_NONBLOCK);
     	}
-	}else{
-		printf("Error\n");
+    	printf("Ok api\n");
 	}
+
 }
 
-void api_get_message(){
-
-	char buffer[256];
+char * api_read( api_handler * api ){
+	
 	int n;
-	if (api.sock_client > 0 )
+	fd_set readfds;
+	struct timespec timeout;			//	Estructura de los tiempos de ejecucíon
+	int scount;							//	Numero de FD mas alto.
+	int status_select;					//	Estado de la consulta al socket
+	const sigset_t sigmask;				//	Puntero a la mascara de la señal del socket leido
+	char * _buffer;
+	char buff;
+    FD_ZERO (&readfds);
+	FD_SET (api->sock_client, &readfds);
+
+	_buffer = (char *)malloc(sizeof(char));
+
+	scount = api->sock_client+1;
+	timeout.tv_sec = 0;
+	timeout.tv_nsec = 1;
+	status_select = pselect (scount,
+				&readfds,
+			 	NULL,
+			 	NULL,
+			 	&timeout,
+			 	&sigmask);
+
+	if (api->sock_client > 0 && status_select > 0)
 	{
-		bzero(buffer,256);
-		if ( (n = read(api.sock_client, buffer, 255)) < 0 )
-		{
-			fprintf(stderr, "Error leyendo el socket\n");
-		}else{
-			printf("Leemos del socket %s\n", buffer);
-		}
+		strcpy(_buffer, "\0");
+		while ( 1 ){
+			n = read(api->sock_client, &buff, 1 );
+			if ( n <= 0 ) break;
+			sprintf(_buffer, "%s%c", _buffer, buff );
+		}		
+		// if ( (n = write(api->sock_client, "Tengo tu mensaje", 16)) < 0 )
+		// {
+		// 	fprintf(stderr, "Error escribiendo el socket\n");
+		// }
 
-		if ( (n = write(api.sock_client, "Tengo tu mensaje", 16)) < 0 )
-		{
-			fprintf(stderr, "Error escribiendo el socket\n");
-		}else{
-			printf("Leemos del socket %s\n", buffer);
-		}    		
+	}else{
+		_buffer = NULL;
 	}
+
+	return _buffer;
 }
 
-void close_api(){
-	close(api.sock);	
+void api_write( api_handler * api , char * string){
+	
+	int n;
+
+	if ( (n = write(api->sock_client, string, (int) strlen( string ) )) < 0 )
+	{
+		fprintf(stderr, "Error escribiendo el socket\n");
+	}
+
 }
 
-void close_client_api(){
-	close(api.sock_client);
+void close_api( api_handler * api){
+	close(api->sock);	
+}
+
+void close_client_api( api_handler * api){
+	close(api->sock_client);
 }

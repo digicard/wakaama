@@ -155,6 +155,7 @@ static void prv_output_clients(char * buffer,
 
     for (targetP = lwm2mH->clientList ; targetP != NULL ; targetP = targetP->next)
     {
+        printf("%s\n", targetP->name);
         prv_dump_client(targetP);
     }
 }
@@ -816,6 +817,11 @@ int main(int argc, char *argv[])
     int addressFamily = AF_INET6;
     int opt;
     const char * localPort = LWM2M_STANDARD_PORT_STR;
+    char * buffer_api;
+    api_handler * api = NULL;
+
+    buffer_api = (char *)malloc(sizeof(char));
+    buffer_api = NULL;
 
     command_desc_t commands[] =
     {
@@ -924,7 +930,12 @@ int main(int argc, char *argv[])
 
     signal(SIGINT, handle_sigint);
 
-    //create_api();
+    api = create_api();
+
+    if (api->sock < 0)
+    {
+        fprintf(stderr, "Error opening socket: %d\r\n", errno);
+    }
 
     for (i = 0 ; commands[i].name != NULL ; i++)
     {
@@ -934,13 +945,12 @@ int main(int argc, char *argv[])
 
     lwm2m_set_monitoring_callback(lwm2mH, prv_monitor_callback, lwm2mH);
 
-    // int digicard = 0;
-    // int digicard_ = 0;
-
     while (0 == g_quit)
     {
-        api_new_connection();
-        
+
+        api_new_connection(api);
+        buffer_api = api_read(api);
+
         FD_ZERO(&readfds);
         FD_SET(sock, &readfds);
         FD_SET(STDIN_FILENO, &readfds);
@@ -1011,7 +1021,6 @@ int main(int argc, char *argv[])
                         if (connP != NULL)
                         {
                             connList = connP;
-                            // digicard = digicard + 1;
                         }
                     }
                     if (connP != NULL)
@@ -1019,12 +1028,6 @@ int main(int argc, char *argv[])
                         lwm2m_handle_packet(lwm2mH, buffer, numBytes, connP);
                     }
 
-                    // if (connP != NULL && digicard != digicard_)
-                    // {
-                        // sprintf(buffer, "observe %d /31024/10/1", digicard_);
-                        // handle_command(commands, buffer);
-                        // digicard_ = digicard;
-                    // }
                 }
             }
             else if (FD_ISSET(STDIN_FILENO, &readfds))
@@ -1049,11 +1052,62 @@ int main(int argc, char *argv[])
             }
         }
 
-        api_get_message();
+        if ( buffer_api != NULL )
+        {
+            printf("Ok mensaje por api : %s\n", buffer_api);
+            //lwm2mH
+            // prv_
+            //static void prv_output_clients(char * buffer, void * user_data)
+            //printf("%s\n", lwm2mH->clientList[0].name);
+            //prv_output_clients(NULL, lwm2mH);
+            //handle_command(commands, (char *)buffer_api);
+
+            if ( commands[0].name == buffer_api )
+            {
+                printf("lista\n");
+            }
+
+            if (lwm2mH->clientList == NULL)
+            {
+                api_write(api, "Sin clientes");
+            }
+            
+            // lwm2m_client_object_t * objectP;
+
+            // fprintf(stdout, "Client #%d:\r\n", targetP->internalID);
+            // fprintf(stdout, "\tname: \"%s\"\r\n", targetP->name);
+            // fprintf(stdout, "\tbinding: \"%s\"\r\n", prv_dump_binding(targetP->binding));
+            // if (targetP->msisdn) fprintf(stdout, "\tmsisdn: \"%s\"\r\n", targetP->msisdn);
+            // if (targetP->altPath) fprintf(stdout, "\talternative path: \"%s\"\r\n", targetP->altPath);
+            // fprintf(stdout, "\tlifetime: %d sec\r\n", targetP->lifetime);
+            // fprintf(stdout, "\tobjects: ");
+            // for (objectP = targetP->objectList; objectP != NULL ; objectP = objectP->next)
+            // {
+            //     if (objectP->instanceList == NULL)
+            //     {
+            //         fprintf(stdout, "/%d, ", objectP->id);
+            //     }
+            //     else
+            //     {
+            //         lwm2m_list_t * instanceP;
+
+            //         for (instanceP = objectP->instanceList; instanceP != NULL ; instanceP = instanceP->next)
+            //         {
+            //             fprintf(stdout, "/%d/%d, ", objectP->id, instanceP->id);
+            //         }
+            //     }
+            // }
+
+
+
+        }
+
+        buffer_api = NULL;
+
     }
 
-    close_api();
-    close_client_api();
+    close_api(api);
+    close_client_api(api);
     lwm2m_close(lwm2mH);
     close(sock);
     connection_free(connList);
