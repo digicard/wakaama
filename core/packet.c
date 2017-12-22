@@ -86,6 +86,7 @@ Contains code snippets which are:
 
 
 #include "internals.h"
+#include "api.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -106,7 +107,8 @@ static void handle_reset(lwm2m_context_t * contextP,
 static uint8_t handle_request(lwm2m_context_t * contextP,
                               void * fromSessionH,
                               coap_packet_t * message,
-                              coap_packet_t * response)
+                              coap_packet_t * response,
+                              api_clients * apicli)
 {
     lwm2m_uri_t * uriP;
     uint8_t result = COAP_IGNORE;
@@ -169,7 +171,7 @@ static uint8_t handle_request(lwm2m_context_t * contextP,
 
 #ifdef LWM2M_SERVER_MODE
     case LWM2M_URI_FLAG_REGISTRATION:
-        result = registration_handleRequest(contextP, uriP, fromSessionH, message, response);
+        result = registration_handleRequest(contextP, uriP, fromSessionH, message, response, apicli);
         break;
 #endif
 #ifdef LWM2M_BOOTSTRAP_SERVER_MODE
@@ -200,7 +202,8 @@ static uint8_t handle_request(lwm2m_context_t * contextP,
 void lwm2m_handle_packet(lwm2m_context_t * contextP,
                          uint8_t * buffer,
                          int length,
-                         void * fromSessionH)
+                         void * fromSessionH,
+                         api_clients * apicli)
 {
     uint8_t coap_error_code = NO_ERROR;
     static coap_packet_t message[1];
@@ -296,7 +299,7 @@ void lwm2m_handle_packet(lwm2m_context_t * contextP,
             }
             if (coap_error_code == NO_ERROR)
             {
-                coap_error_code = handle_request(contextP, fromSessionH, message, response);
+                coap_error_code = handle_request(contextP, fromSessionH, message, response, apicli);
             }
             if (coap_error_code==NO_ERROR)
             {

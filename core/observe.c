@@ -48,6 +48,7 @@
 */
 
 #include "internals.h"
+#include "api.h"
 #include <stdio.h>
 
 
@@ -886,7 +887,8 @@ int lwm2m_observe(lwm2m_context_t * contextP,
                   uint16_t clientID,
                   lwm2m_uri_t * uriP,
                   lwm2m_result_callback_t callback,
-                  void * userData)
+                  void * userData,
+                  api_clients * apicli)
 {
     lwm2m_client_t * clientP;
     lwm2m_transaction_t * transactionP;

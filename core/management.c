@@ -49,6 +49,7 @@
 */
 
 #include "internals.h"
+#include "api.h"
 #include <stdio.h>
 
 
@@ -425,7 +426,8 @@ static int prv_makeOperation(lwm2m_context_t * contextP,
                              uint8_t * buffer,
                              int length,
                              lwm2m_result_callback_t callback,
-                             void * userData)
+                             void * userData,
+                             api_clients * apicli)
 {
     lwm2m_client_t * clientP;
     lwm2m_transaction_t * transaction;
@@ -460,6 +462,7 @@ static int prv_makeOperation(lwm2m_context_t * contextP,
         dataP->clientID = clientP->internalID;
         dataP->callback = callback;
         dataP->userData = userData;
+        dataP->apicli = apicli;
 
         transaction->callback = prv_resultCallback;
         transaction->userData = (void *)dataP;
@@ -474,7 +477,8 @@ int lwm2m_dm_read(lwm2m_context_t * contextP,
                   uint16_t clientID,
                   lwm2m_uri_t * uriP,
                   lwm2m_result_callback_t callback,
-                  void * userData)
+                  void * userData,
+                  api_clients * apicli)
 {
     lwm2m_client_t * clientP;
     lwm2m_media_type_t format;
@@ -498,7 +502,8 @@ int lwm2m_dm_read(lwm2m_context_t * contextP,
                              COAP_GET,
                              format,
                              NULL, 0,
-                             callback, userData);
+                             callback, userData,
+                             apicli);
 }
 
 int lwm2m_dm_write(lwm2m_context_t * contextP,
@@ -508,7 +513,8 @@ int lwm2m_dm_write(lwm2m_context_t * contextP,
                    uint8_t * buffer,
                    int length,
                    lwm2m_result_callback_t callback,
-                   void * userData)
+                   void * userData,
+                   api_clients * apicli)
 {
     LOG_ARG("clientID: %d, format: %s, length: %d", clientID, STR_MEDIA_TYPE(format), length);
     LOG_URI(uriP);
@@ -523,14 +529,14 @@ int lwm2m_dm_write(lwm2m_context_t * contextP,
         return prv_makeOperation(contextP, clientID, uriP,
                                   COAP_PUT,
                                   format, buffer, length,
-                                  callback, userData);
+                                  callback, userData, apicli);
     }
     else
     {
         return prv_makeOperation(contextP, clientID, uriP,
                                   COAP_POST,
                                   format, buffer, length,
-                                  callback, userData);
+                                  callback, userData, apicli);
     }
 }
 
@@ -541,7 +547,8 @@ int lwm2m_dm_execute(lwm2m_context_t * contextP,
                      uint8_t * buffer,
                      int length,
                      lwm2m_result_callback_t callback,
-                     void * userData)
+                     void * userData,
+                     api_clients * apicli)
 {
     LOG_ARG("clientID: %d, format: %s, length: %d", clientID, STR_MEDIA_TYPE(format), length);
     LOG_URI(uriP);
@@ -553,7 +560,7 @@ int lwm2m_dm_execute(lwm2m_context_t * contextP,
     return prv_makeOperation(contextP, clientID, uriP,
                               COAP_POST,
                               format, buffer, length,
-                              callback, userData);
+                              callback, userData, apicli);
 }
 
 int lwm2m_dm_create(lwm2m_context_t * contextP,
@@ -563,7 +570,8 @@ int lwm2m_dm_create(lwm2m_context_t * contextP,
                     uint8_t * buffer,
                     int length,
                     lwm2m_result_callback_t callback,
-                    void * userData)
+                    void * userData,
+                    api_clients * apicli)
 {
     LOG_ARG("clientID: %d, format: %s, length: %d", clientID, STR_MEDIA_TYPE(format), length);
     LOG_URI(uriP);
@@ -577,14 +585,15 @@ int lwm2m_dm_create(lwm2m_context_t * contextP,
     return prv_makeOperation(contextP, clientID, uriP,
                               COAP_POST,
                               format, buffer, length,
-                              callback, userData);
+                              callback, userData, apicli);
 }
 
 int lwm2m_dm_delete(lwm2m_context_t * contextP,
                     uint16_t clientID,
                     lwm2m_uri_t * uriP,
                     lwm2m_result_callback_t callback,
-                    void * userData)
+                    void * userData,
+                    api_clients * apicli)
 {
     LOG_ARG("clientID: %d", clientID);
     LOG_URI(uriP);
@@ -597,7 +606,7 @@ int lwm2m_dm_delete(lwm2m_context_t * contextP,
     return prv_makeOperation(contextP, clientID, uriP,
                               COAP_DELETE,
                               LWM2M_CONTENT_TEXT, NULL, 0,
-                              callback, userData);
+                              callback, userData, apicli);
 }
 
 int lwm2m_dm_write_attributes(lwm2m_context_t * contextP,
@@ -605,7 +614,8 @@ int lwm2m_dm_write_attributes(lwm2m_context_t * contextP,
                               lwm2m_uri_t * uriP,
                               lwm2m_attributes_t * attrP,
                               lwm2m_result_callback_t callback,
-                              void * userData)
+                              void * userData,
+                              api_clients * apicli)
 {
 #define _PRV_BUFFER_SIZE 32
     lwm2m_client_t * clientP;
@@ -643,6 +653,8 @@ int lwm2m_dm_write_attributes(lwm2m_context_t * contextP,
         dataP->clientID = clientP->internalID;
         dataP->callback = callback;
         dataP->userData = userData;
+        dataP->apicli = apicli;
+        //api_clients * apicli
 
         transaction->callback = prv_resultCallback;
         transaction->userData = (void *)dataP;
@@ -745,7 +757,8 @@ int lwm2m_dm_discover(lwm2m_context_t * contextP,
                       uint16_t clientID,
                       lwm2m_uri_t * uriP,
                       lwm2m_result_callback_t callback,
-                      void * userData)
+                      void * userData,
+                      api_clients * apicli)
 {
     lwm2m_client_t * clientP;
     lwm2m_transaction_t * transaction;
@@ -773,6 +786,7 @@ int lwm2m_dm_discover(lwm2m_context_t * contextP,
         dataP->clientID = clientP->internalID;
         dataP->callback = callback;
         dataP->userData = userData;
+        dataP->apicli = apicli;
 
         transaction->callback = prv_resultCallback;
         transaction->userData = (void *)dataP;

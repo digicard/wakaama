@@ -189,8 +189,10 @@ static void prv_result_callback(uint16_t clientID,
                                 lwm2m_media_type_t format,
                                 uint8_t * data,
                                 int dataLength,
-                                void * userData)
+                                void * userData,
+                                api_clients * apicli)
 {
+    printf("apicli sock %d\n", apicli->sock);
     fprintf(stdout, "\r\nClient #%d /%d", clientID, uriP->objectId);
     if (LWM2M_URI_IS_SET_INSTANCE(uriP))
         fprintf(stdout, "/%d", uriP->instanceId);
@@ -214,7 +216,8 @@ static void prv_notify_callback(uint16_t clientID,
                                 lwm2m_media_type_t format,
                                 uint8_t * data,
                                 int dataLength,
-                                void * userData)
+                                void * userData,
+                                api_clients * apicli)
 {
     fprintf(stdout, "\r\nNotify from client #%d /%d", clientID, uriP->objectId);
     if (LWM2M_URI_IS_SET_INSTANCE(uriP))
@@ -251,7 +254,7 @@ static void prv_read_client(char * buffer,
 
     if (!check_end_of_args(end)) goto syntax_error;
 
-    result = lwm2m_dm_read(lwm2mH, clientId, &uri, prv_result_callback, NULL);
+    result = lwm2m_dm_read(lwm2mH, clientId, &uri, prv_result_callback, NULL, NULL /*Api*/ );
 
     if (result == 0)
     {
@@ -287,7 +290,7 @@ static void prv_discover_client(char * buffer,
 
     if (!check_end_of_args(end)) goto syntax_error;
 
-    result = lwm2m_dm_discover(lwm2mH, clientId, &uri, prv_result_callback, NULL);
+    result = lwm2m_dm_discover(lwm2mH, clientId, &uri, prv_result_callback, NULL, NULL /*Api*/ );
 
     if (result == 0)
     {
@@ -326,7 +329,7 @@ static void prv_write_client(char * buffer,
 
     if (!check_end_of_args(end)) goto syntax_error;
 
-    result = lwm2m_dm_write(lwm2mH, clientId, &uri, LWM2M_CONTENT_TEXT, (uint8_t *)buffer, end - buffer, prv_result_callback, NULL);
+    result = lwm2m_dm_write(lwm2mH, clientId, &uri, LWM2M_CONTENT_TEXT, (uint8_t *)buffer, end - buffer, prv_result_callback, NULL, NULL /*Api*/ );
 
     if (result == 0)
     {
@@ -385,7 +388,7 @@ static void prv_time_client(char * buffer,
 
     if (!check_end_of_args(end)) goto syntax_error;
 
-    result = lwm2m_dm_write_attributes(lwm2mH, clientId, &uri, &attr, prv_result_callback, NULL);
+    result = lwm2m_dm_write_attributes(lwm2mH, clientId, &uri, &attr, prv_result_callback, NULL, NULL /*Api*/ );
 
     if (result == 0)
     {
@@ -452,7 +455,7 @@ static void prv_attr_client(char * buffer,
 
     if (!check_end_of_args(end)) goto syntax_error;
 
-    result = lwm2m_dm_write_attributes(lwm2mH, clientId, &uri, &attr, prv_result_callback, NULL);
+    result = lwm2m_dm_write_attributes(lwm2mH, clientId, &uri, &attr, prv_result_callback, NULL, NULL /*Api*/ );
 
     if (result == 0)
     {
@@ -494,7 +497,7 @@ static void prv_clear_client(char * buffer,
     buffer = get_next_arg(end, &end);
     if (!check_end_of_args(end)) goto syntax_error;
 
-    result = lwm2m_dm_write_attributes(lwm2mH, clientId, &uri, &attr, prv_result_callback, NULL);
+    result = lwm2m_dm_write_attributes(lwm2mH, clientId, &uri, &attr, prv_result_callback, NULL, NULL /*Api*/ );
 
     if (result == 0)
     {
@@ -534,13 +537,13 @@ static void prv_exec_client(char * buffer,
 
     if (buffer[0] == 0)
     {
-        result = lwm2m_dm_execute(lwm2mH, clientId, &uri, 0, NULL, 0, prv_result_callback, NULL);
+        result = lwm2m_dm_execute(lwm2mH, clientId, &uri, 0, NULL, 0, prv_result_callback, NULL, NULL /*Api*/ );
     }
     else
     {
         if (!check_end_of_args(end)) goto syntax_error;
 
-        result = lwm2m_dm_execute(lwm2mH, clientId, &uri, LWM2M_CONTENT_TEXT, (uint8_t *)buffer, end - buffer, prv_result_callback, NULL);
+        result = lwm2m_dm_execute(lwm2mH, clientId, &uri, LWM2M_CONTENT_TEXT, (uint8_t *)buffer, end - buffer, prv_result_callback, NULL, NULL /*Api*/ );
     }
 
     if (result == 0)
@@ -616,7 +619,7 @@ static void prv_create_client(char * buffer,
    /* End Client dependent part*/
 
     //Create
-    result = lwm2m_dm_create(lwm2mH, clientId, &uri, format, temp_buffer, temp_length, prv_result_callback, NULL);
+    result = lwm2m_dm_create(lwm2mH, clientId, &uri, format, temp_buffer, temp_length, prv_result_callback, NULL, NULL /*Api*/ );
 
     if (result == 0)
     {
@@ -652,7 +655,7 @@ static void prv_delete_client(char * buffer,
 
     if (!check_end_of_args(end)) goto syntax_error;
 
-    result = lwm2m_dm_delete(lwm2mH, clientId, &uri, prv_result_callback, NULL);
+    result = lwm2m_dm_delete(lwm2mH, clientId, &uri, prv_result_callback, NULL, NULL /*Api*/ );
 
     if (result == 0)
     {
@@ -688,7 +691,7 @@ static void prv_observe_client(char * buffer,
 
     if (!check_end_of_args(end)) goto syntax_error;
 
-    result = lwm2m_observe(lwm2mH, clientId, &uri, prv_notify_callback, NULL);
+    result = lwm2m_observe(lwm2mH, clientId, &uri, prv_notify_callback, NULL, NULL /*Api*/ );
 
     if (result == 0)
     {
@@ -724,7 +727,7 @@ static void prv_cancel_client(char * buffer,
 
     if (!check_end_of_args(end)) goto syntax_error;
 
-    result = lwm2m_observe_cancel(lwm2mH, clientId, &uri, prv_result_callback, NULL);
+    result = lwm2m_observe_cancel(lwm2mH, clientId, &uri, prv_result_callback, NULL, NULL /*Api*/);
 
     if (result == 0)
     {
@@ -817,11 +820,8 @@ int main(int argc, char *argv[])
     int addressFamily = AF_INET6;
     int opt;
     const char * localPort = LWM2M_STANDARD_PORT_STR;
-    char * buffer_api;
-    api_handler * api = NULL;
 
-    buffer_api = (char *)malloc(sizeof(char));
-    buffer_api = NULL;
+    api_handler * api = NULL;
 
     command_desc_t commands[] =
     {
@@ -948,15 +948,12 @@ int main(int argc, char *argv[])
     while (0 == g_quit)
     {
 
-        api_new_connection(api);
-        buffer_api = api_read(api);
-
         FD_ZERO(&readfds);
         FD_SET(sock, &readfds);
         FD_SET(STDIN_FILENO, &readfds);
 
-        tv.tv_sec = 1;
-        tv.tv_usec = 0;
+        tv.tv_sec = 0;
+        tv.tv_usec = 1;
         
         result = lwm2m_step(lwm2mH, &(tv.tv_sec));
         if (result != 0)
@@ -1052,62 +1049,102 @@ int main(int argc, char *argv[])
             }
         }
 
-        if ( buffer_api != NULL )
+        api_new_connection(api);
+
+        for( api_clients * apicli = api->clients;
+             apicli != NULL; 
+             apicli = apicli->next )
         {
-            printf("Ok mensaje por api : %s\n", buffer_api);
-            //lwm2mH
-            // prv_
-            //static void prv_output_clients(char * buffer, void * user_data)
-            //printf("%s\n", lwm2mH->clientList[0].name);
-            //prv_output_clients(NULL, lwm2mH);
-            //handle_command(commands, (char *)buffer_api);
-
-            if ( commands[0].name == buffer_api )
-            {
-                printf("lista\n");
-            }
-
-            if (lwm2mH->clientList == NULL)
-            {
-                api_write(api, "Sin clientes");
-            }
             
-            // lwm2m_client_object_t * objectP;
+            char *token=NULL; 
+            char *buffer_command=NULL;
+            char *buffer_url=NULL;
+            char *buffer_api;
+            char response[1024] = "\0";
+            int buffer_client, z;
 
-            // fprintf(stdout, "Client #%d:\r\n", targetP->internalID);
-            // fprintf(stdout, "\tname: \"%s\"\r\n", targetP->name);
-            // fprintf(stdout, "\tbinding: \"%s\"\r\n", prv_dump_binding(targetP->binding));
-            // if (targetP->msisdn) fprintf(stdout, "\tmsisdn: \"%s\"\r\n", targetP->msisdn);
-            // if (targetP->altPath) fprintf(stdout, "\talternative path: \"%s\"\r\n", targetP->altPath);
-            // fprintf(stdout, "\tlifetime: %d sec\r\n", targetP->lifetime);
-            // fprintf(stdout, "\tobjects: ");
-            // for (objectP = targetP->objectList; objectP != NULL ; objectP = objectP->next)
-            // {
-            //     if (objectP->instanceList == NULL)
-            //     {
-            //         fprintf(stdout, "/%d, ", objectP->id);
-            //     }
-            //     else
-            //     {
-            //         lwm2m_list_t * instanceP;
+            buffer_api = (char *)malloc(sizeof(char));
 
-            //         for (instanceP = objectP->instanceList; instanceP != NULL ; instanceP = instanceP->next)
-            //         {
-            //             fprintf(stdout, "/%d/%d, ", objectP->id, instanceP->id);
-            //         }
-            //     }
-            // }
+            buffer_api = api_read(apicli);
+            if (buffer_api != NULL)
+            {
+                printf("Ok mensaje por api : %s\n", buffer_api);
+                
+                z = 0;
+                while ((token = strsep(&buffer_api, "_")) != NULL){
+                    if (z == 0) buffer_command = token;
+                    if (z == 1) buffer_client = atoi(token);
+                    if (z == 2) buffer_url = token;
+                    z++;
+                }
 
+                //printf("%s %d %s \n", buffer_command, buffer_client, buffer_url);
+            }
 
+            if ( buffer_command != NULL )
+            {
+                if ( strcmp(buffer_command, "list") == 0 )
+                {
+                    if (lwm2mH->clientList == NULL)
+                    {
+                        api_write(apicli, "list_0");
+                    }else{
+                        
+                        sprintf(response, "list_");
+                        
+                        for ( lwm2m_client_t * targetP = lwm2mH->clientList;
+                              targetP != NULL;
+                              targetP = targetP->next )
+                        {
+                            lwm2m_client_object_t * objectP;
+                            
+                            sprintf(response, 
+                                "%sclient/%d_name/%s_binding/%s_msisdn/%s_path/%s_lifetime/%d_", 
+                                response, 
+                                targetP->internalID,
+                                targetP->name,
+                                prv_dump_binding(targetP->binding),
+                                targetP->msisdn,
+                                targetP->altPath,
+                                targetP->lifetime);
+
+                            sprintf(response, "%sobjects-", response);
+
+                            for (objectP = targetP->objectList; objectP != NULL ; objectP = objectP->next)
+                            {
+                                if (objectP->instanceList == NULL)
+                                {
+                                    sprintf(response, "%s/%d-", response, objectP->id);
+                                }
+                                else
+                                {
+                                    lwm2m_list_t * instanceP;
+
+                                    for (instanceP = objectP->instanceList; instanceP != NULL ; instanceP = instanceP->next)
+                                    {
+                                        sprintf(response, "%s/%d/%d-", response, objectP->id, instanceP->id);
+                                    }
+                                }
+                            }
+                            sprintf(response, "%s_", response);
+                        }
+                        api_write(apicli, response);
+                    }
+                }
+
+                if ( strcmp(buffer_command, "read") == 0 )
+                {
+                    lwm2m_uri_t uri;
+                    lwm2m_stringToUri(buffer_url, strlen(buffer_url), &uri);
+                    lwm2m_dm_read(lwm2mH, buffer_client, &uri, prv_result_callback, NULL, apicli);
+                }
+
+            }
 
         }
 
-        buffer_api = NULL;
-
     }
 
-    close_api(api);
-    close_client_api(api);
     lwm2m_close(lwm2mH);
     close(sock);
     connection_free(connList);
