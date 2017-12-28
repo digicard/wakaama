@@ -220,7 +220,6 @@ typedef struct
     lwm2m_uri_t uri;
     lwm2m_result_callback_t callback;
     void * userData;
-    api_clients * apicli;
 } dm_data_t;
 
 typedef enum

@@ -1024,8 +1024,7 @@ uint8_t registration_handleRequest(lwm2m_context_t * contextP,
                                    lwm2m_uri_t * uriP,
                                    void * fromSessionH,
                                    coap_packet_t * message,
-                                   coap_packet_t * response,
-                                   api_clients * apicli)
+                                   coap_packet_t * response)
 {
     uint8_t result;
     time_t tv_sec;
@@ -1150,7 +1149,7 @@ uint8_t registration_handleRequest(lwm2m_context_t * contextP,
 
             if (contextP->monitorCallback != NULL)
             {
-                contextP->monitorCallback(clientP->internalID, NULL, COAP_201_CREATED, LWM2M_CONTENT_TEXT, NULL, 0, contextP->monitorUserData, apicli);
+                contextP->monitorCallback(clientP->internalID, NULL, COAP_201_CREATED, LWM2M_CONTENT_TEXT, NULL, 0, contextP->monitorUserData);
             }
             result = COAP_201_CREATED;
             break;

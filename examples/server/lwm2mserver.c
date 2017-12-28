@@ -75,6 +75,8 @@
 
 #include "api.h"
 
+api_handler * api = NULL;
+
 #define MAX_PACKET_SIZE 1024
 
 static int g_quit = 0;
@@ -189,10 +191,8 @@ static void prv_result_callback(uint16_t clientID,
                                 lwm2m_media_type_t format,
                                 uint8_t * data,
                                 int dataLength,
-                                void * userData,
-                                api_clients * apicli)
+                                void * userData)
 {
-    printf("apicli sock %d\n", apicli->sock);
     fprintf(stdout, "\r\nClient #%d /%d", clientID, uriP->objectId);
     if (LWM2M_URI_IS_SET_INSTANCE(uriP))
         fprintf(stdout, "/%d", uriP->instanceId);
@@ -216,8 +216,7 @@ static void prv_notify_callback(uint16_t clientID,
                                 lwm2m_media_type_t format,
                                 uint8_t * data,
                                 int dataLength,
-                                void * userData,
-                                api_clients * apicli)
+                                void * userData)
 {
     fprintf(stdout, "\r\nNotify from client #%d /%d", clientID, uriP->objectId);
     if (LWM2M_URI_IS_SET_INSTANCE(uriP))
@@ -254,7 +253,7 @@ static void prv_read_client(char * buffer,
 
     if (!check_end_of_args(end)) goto syntax_error;
 
-    result = lwm2m_dm_read(lwm2mH, clientId, &uri, prv_result_callback, NULL, NULL /*Api*/ );
+    result = lwm2m_dm_read(lwm2mH, clientId, &uri, prv_result_callback, NULL );
 
     if (result == 0)
     {
@@ -290,7 +289,7 @@ static void prv_discover_client(char * buffer,
 
     if (!check_end_of_args(end)) goto syntax_error;
 
-    result = lwm2m_dm_discover(lwm2mH, clientId, &uri, prv_result_callback, NULL, NULL /*Api*/ );
+    result = lwm2m_dm_discover(lwm2mH, clientId, &uri, prv_result_callback, NULL );
 
     if (result == 0)
     {
@@ -329,7 +328,7 @@ static void prv_write_client(char * buffer,
 
     if (!check_end_of_args(end)) goto syntax_error;
 
-    result = lwm2m_dm_write(lwm2mH, clientId, &uri, LWM2M_CONTENT_TEXT, (uint8_t *)buffer, end - buffer, prv_result_callback, NULL, NULL /*Api*/ );
+    result = lwm2m_dm_write(lwm2mH, clientId, &uri, LWM2M_CONTENT_TEXT, (uint8_t *)buffer, end - buffer, prv_result_callback, NULL );
 
     if (result == 0)
     {
@@ -388,7 +387,7 @@ static void prv_time_client(char * buffer,
 
     if (!check_end_of_args(end)) goto syntax_error;
 
-    result = lwm2m_dm_write_attributes(lwm2mH, clientId, &uri, &attr, prv_result_callback, NULL, NULL /*Api*/ );
+    result = lwm2m_dm_write_attributes(lwm2mH, clientId, &uri, &attr, prv_result_callback, NULL );
 
     if (result == 0)
     {
@@ -455,7 +454,7 @@ static void prv_attr_client(char * buffer,
 
     if (!check_end_of_args(end)) goto syntax_error;
 
-    result = lwm2m_dm_write_attributes(lwm2mH, clientId, &uri, &attr, prv_result_callback, NULL, NULL /*Api*/ );
+    result = lwm2m_dm_write_attributes(lwm2mH, clientId, &uri, &attr, prv_result_callback, NULL );
 
     if (result == 0)
     {
@@ -497,7 +496,7 @@ static void prv_clear_client(char * buffer,
     buffer = get_next_arg(end, &end);
     if (!check_end_of_args(end)) goto syntax_error;
 
-    result = lwm2m_dm_write_attributes(lwm2mH, clientId, &uri, &attr, prv_result_callback, NULL, NULL /*Api*/ );
+    result = lwm2m_dm_write_attributes(lwm2mH, clientId, &uri, &attr, prv_result_callback, NULL );
 
     if (result == 0)
     {
@@ -537,13 +536,13 @@ static void prv_exec_client(char * buffer,
 
     if (buffer[0] == 0)
     {
-        result = lwm2m_dm_execute(lwm2mH, clientId, &uri, 0, NULL, 0, prv_result_callback, NULL, NULL /*Api*/ );
+        result = lwm2m_dm_execute(lwm2mH, clientId, &uri, 0, NULL, 0, prv_result_callback, NULL );
     }
     else
     {
         if (!check_end_of_args(end)) goto syntax_error;
 
-        result = lwm2m_dm_execute(lwm2mH, clientId, &uri, LWM2M_CONTENT_TEXT, (uint8_t *)buffer, end - buffer, prv_result_callback, NULL, NULL /*Api*/ );
+        result = lwm2m_dm_execute(lwm2mH, clientId, &uri, LWM2M_CONTENT_TEXT, (uint8_t *)buffer, end - buffer, prv_result_callback, NULL );
     }
 
     if (result == 0)
@@ -619,7 +618,7 @@ static void prv_create_client(char * buffer,
    /* End Client dependent part*/
 
     //Create
-    result = lwm2m_dm_create(lwm2mH, clientId, &uri, format, temp_buffer, temp_length, prv_result_callback, NULL, NULL /*Api*/ );
+    result = lwm2m_dm_create(lwm2mH, clientId, &uri, format, temp_buffer, temp_length, prv_result_callback, NULL );
 
     if (result == 0)
     {
@@ -655,7 +654,7 @@ static void prv_delete_client(char * buffer,
 
     if (!check_end_of_args(end)) goto syntax_error;
 
-    result = lwm2m_dm_delete(lwm2mH, clientId, &uri, prv_result_callback, NULL, NULL /*Api*/ );
+    result = lwm2m_dm_delete(lwm2mH, clientId, &uri, prv_result_callback, NULL );
 
     if (result == 0)
     {
@@ -691,7 +690,7 @@ static void prv_observe_client(char * buffer,
 
     if (!check_end_of_args(end)) goto syntax_error;
 
-    result = lwm2m_observe(lwm2mH, clientId, &uri, prv_notify_callback, NULL, NULL /*Api*/ );
+    result = lwm2m_observe(lwm2mH, clientId, &uri, prv_notify_callback, NULL );
 
     if (result == 0)
     {
@@ -727,7 +726,7 @@ static void prv_cancel_client(char * buffer,
 
     if (!check_end_of_args(end)) goto syntax_error;
 
-    result = lwm2m_observe_cancel(lwm2mH, clientId, &uri, prv_result_callback, NULL, NULL /*Api*/);
+    result = lwm2m_observe_cancel(lwm2mH, clientId, &uri, prv_result_callback, NULL);
 
     if (result == 0)
     {
@@ -821,7 +820,6 @@ int main(int argc, char *argv[])
     int opt;
     const char * localPort = LWM2M_STANDARD_PORT_STR;
 
-    api_handler * api = NULL;
 
     command_desc_t commands[] =
     {
@@ -952,8 +950,8 @@ int main(int argc, char *argv[])
         FD_SET(sock, &readfds);
         FD_SET(STDIN_FILENO, &readfds);
 
-        tv.tv_sec = 0;
-        tv.tv_usec = 1;
+        tv.tv_sec = 1;
+        tv.tv_usec = 0;
         
         result = lwm2m_step(lwm2mH, &(tv.tv_sec));
         if (result != 0)
@@ -1051,43 +1049,22 @@ int main(int argc, char *argv[])
 
         api_new_connection(api);
 
-        for( api_clients * apicli = api->clients;
-             apicli != NULL; 
-             apicli = apicli->next )
+        for( api_operation * apioper = api->operation;
+             apioper != NULL; 
+             apioper = apioper->next )
         {
             
-            char *token=NULL; 
-            char *buffer_command=NULL;
-            char *buffer_url=NULL;
-            char *buffer_api;
             char response[1024] = "\0";
-            int buffer_client, z;
+            
+            api_read(apioper);
 
-            buffer_api = (char *)malloc(sizeof(char));
-
-            buffer_api = api_read(apicli);
-            if (buffer_api != NULL)
+            if ( apioper->command != NULL )
             {
-                printf("Ok mensaje por api : %s\n", buffer_api);
-                
-                z = 0;
-                while ((token = strsep(&buffer_api, "_")) != NULL){
-                    if (z == 0) buffer_command = token;
-                    if (z == 1) buffer_client = atoi(token);
-                    if (z == 2) buffer_url = token;
-                    z++;
-                }
-
-                //printf("%s %d %s \n", buffer_command, buffer_client, buffer_url);
-            }
-
-            if ( buffer_command != NULL )
-            {
-                if ( strcmp(buffer_command, "list") == 0 )
+                if ( strcmp(apioper->command, "list") == 0 )
                 {
                     if (lwm2mH->clientList == NULL)
                     {
-                        api_write(apicli, "list_0");
+                        api_write(apioper, "list_0");
                     }else{
                         
                         sprintf(response, "list_");
@@ -1128,15 +1105,15 @@ int main(int argc, char *argv[])
                             }
                             sprintf(response, "%s_", response);
                         }
-                        api_write(apicli, response);
+                        api_write(apioper, response);
                     }
                 }
 
-                if ( strcmp(buffer_command, "read") == 0 )
+                if ( strcmp(apioper->command, "read") == 0 )
                 {
                     lwm2m_uri_t uri;
-                    lwm2m_stringToUri(buffer_url, strlen(buffer_url), &uri);
-                    lwm2m_dm_read(lwm2mH, buffer_client, &uri, prv_result_callback, NULL, apicli);
+                    lwm2m_stringToUri(apioper->url, strlen(apioper->url), &uri);
+                    lwm2m_dm_read(lwm2mH, apioper->client_id, &uri, prv_result_callback, NULL);
                 }
 
             }
