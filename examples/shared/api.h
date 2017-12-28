@@ -21,11 +21,10 @@ typedef struct
     api_operation *     		operation;
 } api_handler;
 
-api_handler * create_api();
-void close_api(int socket);
-int api_new_connection(api_handler * api);
-//char * api_read(api_operation * apicli);
-void api_read(api_operation * apicli);
-void api_write( api_operation * apicli , char * string);
-int api_list_clients( api_handler * api );
-void api_notify( api_handler * api, uint16_t clientID, lwm2m_uri_t * uriP, uint8_t * data);
+api_handler * 	create_api();
+void 			close_api(int socket);
+int 			api_new_connection(api_handler * api);
+void 			api_read(api_operation * apicli);
+void 			api_write( api_operation * apicli , char * string);
+int 			api_list_clients( api_handler * api );
+void 			api_notify( api_handler * api, uint16_t clientID, lwm2m_uri_t * uriP, uint8_t * data);

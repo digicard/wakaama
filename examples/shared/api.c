@@ -120,23 +120,17 @@ int api_new_connection( api_handler * api ){
 	        	api->operation = (api_operation *)malloc(sizeof(api_operation));
 	        	api->operation = operationNew;
 	        }else{
-
 	        	operationLast = api->operation;
-    		
 	    		while( operationLast->next ){
 	    			operationLast = operationLast->next;
 	    		}
-
 	    		operationLast->next = operationNew;
 	        }
-
     		fcntl(operationNew->sock, F_SETFL, O_NONBLOCK);
+
     	}
-
     	printf("Ok api\n");
-    	
 	}
-
 }
 
 /*
@@ -187,22 +181,12 @@ void api_read( api_operation * apioper ){
 	clear(apioper->command);
 	clear(apioper->buffer);
 	clear(apioper->value);
-
 	if (apioper->sock > 0 && status_select > 0)
 	{
 		int i = 0;
 		while (1){
 			n = read(apioper->sock, &buff, 1 );
-			if ( n < 0 ) break;	// Fin de mensaje
-			if ( n == 0 ) {
-				close_api(apioper->sock);
-				apioper->sock = -1;
-				free(apioper->buffer);
-				free(apioper->command);
-				free(apioper->url);
-				free(apioper->value);
-				break;
-			}
+			if ( n <= 0 ) break;	// Fin de mensaje
 			if (apioper->buffer == NULL)
 				apioper->buffer = (char *)malloc(sizeof(char)*512);
 
