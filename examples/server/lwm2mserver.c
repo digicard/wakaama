@@ -206,6 +206,11 @@ static void prv_result_callback(uint16_t clientID,
 
     output_data(stdout, format, data, dataLength, 1);
 
+    if (data != NULL)
+    {
+        api_notify(api, clientID, uriP, data);
+    }
+
     fprintf(stdout, "\r\n> ");
     fflush(stdout);
 }
@@ -228,6 +233,8 @@ static void prv_notify_callback(uint16_t clientID,
     fprintf(stdout, " number %d\r\n", count);
 
     output_data(stdout, format, data, dataLength, 1);
+
+    api_notify(api, clientID, uriP, data);
 
     fprintf(stdout, "\r\n> ");
     fflush(stdout);
@@ -1053,9 +1060,7 @@ int main(int argc, char *argv[])
              apioper != NULL; 
              apioper = apioper->next )
         {
-            
             char response[1024] = "\0";
-            
             api_read(apioper);
 
             if ( apioper->command != NULL )
@@ -1114,6 +1119,42 @@ int main(int argc, char *argv[])
                     lwm2m_uri_t uri;
                     lwm2m_stringToUri(apioper->url, strlen(apioper->url), &uri);
                     lwm2m_dm_read(lwm2mH, apioper->client_id, &uri, prv_result_callback, NULL);
+                }
+
+                if ( strcmp(apioper->command, "observe") == 0 )
+                {
+                    int result;
+                    lwm2m_uri_t uri;
+
+                    result = lwm2m_stringToUri(apioper->url, strlen(apioper->url), &uri);
+                    result = lwm2m_observe(lwm2mH, apioper->client_id, &uri, prv_notify_callback, NULL );
+
+                    if (result == 0)
+                    {
+                        fprintf(stdout, "OK");
+                    }
+                    else
+                    {
+                        prv_print_error(result);
+                    }
+                }
+
+                if ( strcmp(apioper->command, "write") == 0 )
+                {
+                    int result;
+                    lwm2m_uri_t uri;
+
+                    result = lwm2m_stringToUri(apioper->url, strlen(apioper->url), &uri);
+                    result = lwm2m_dm_write(lwm2mH, apioper->client_id, &uri, LWM2M_CONTENT_TEXT, (uint8_t *)apioper->value, strlen(apioper->value), prv_result_callback, NULL );
+                    
+                    if (result == 0)
+                    {
+                        fprintf(stdout, "OK");
+                    }
+                    else
+                    {
+                        prv_print_error(result);
+                    }
                 }
 
             }

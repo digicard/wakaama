@@ -1,3 +1,33 @@
+/*
+ Copyright (c) 2017, Digicard Sistemas
+
+ Redistribution and use in source and binary forms, with or without modification,
+ are permitted provided that the following conditions are met:
+
+     * Redistributions of source code must retain the above copyright notice,
+       this list of conditions and the following disclaimer.
+     * Redistributions in binary form must reproduce the above copyright notice,
+       this list of conditions and the following disclaimer in the documentation
+       and/or other materials provided with the distribution.
+     * Neither the name of Intel Corporation nor the names of its contributors
+       may be used to endorse or promote products derived from this software
+       without specific prior written permission.
+
+ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+ INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+ BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+ LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+ THE POSSIBILITY OF SUCH DAMAGE.
+
+ Pablo Martin Perez <pmperez@digicard.net>
+
+*/
+
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -11,6 +41,10 @@
 #include "connection.h"
 #include "api.h"
 
+/*
+ * Llamar tantas veces como instancias de host API se necesite
+ * Default llama 1 vez desde lwm2mserver.c
+ */
 api_handler * create_api(){
 
 	api_handler * _api;
@@ -30,6 +64,11 @@ api_handler * create_api(){
 
 }
 
+/*
+ * Utilizar para encontrar conexion.
+ * Genera nueva estructura API_OPERATION que mantiene los 
+ * datos de la tarea pedida.
+ */
 int api_new_connection( api_handler * api ){
 
 	struct sockaddr_in cli_addr;
@@ -43,13 +82,12 @@ int api_new_connection( api_handler * api ){
 	int _socket;
 	int index;
 
-	api_handler * _api = api;
-	api_operation * apioperLast, * apioperNew;
+	api_operation * operationLast, * operationNew;
 
     FD_ZERO (&readfds);
-	FD_SET (_api->sock, &readfds);
+	FD_SET (api->sock, &readfds);
 
-	scount = _api->sock+1;
+	scount = api->sock+1;
 	timeout.tv_sec = 0;
 	timeout.tv_nsec = 1;
 	status_select = pselect (scount,
@@ -59,40 +97,40 @@ int api_new_connection( api_handler * api ){
 			 	&timeout,
 			 	&sigmask);
 
-	if ( status_select > 0 && FD_ISSET ( _api->sock, &readfds) ) {
+	if ( status_select > 0 && FD_ISSET ( api->sock, &readfds) ) {
 
 		clilen = sizeof(cli_addr);
 
-		_socket = accept(_api->sock, (struct sockaddr *) &cli_addr, &clilen);
+		_socket = accept(api->sock, (struct sockaddr *) &cli_addr, &clilen);
 
     	if ( _socket < 0 ){
     		fprintf(stderr, "Error opening socket: %d\r\n", errno);
     	}else{    		
 
-    		apioperNew = (api_operation *)malloc(sizeof(api_operation));
-    		apioperNew->sock = _socket;
-    		apioperNew->buffer = (char *)malloc(sizeof(char)*512);
-    		apioperNew->command = (char *)malloc(sizeof(char)*512);
-		    apioperNew->url = (char *)malloc(sizeof(char)*512);
-		    apioperNew->value = (char *)malloc(sizeof(char)*512);
-		    apioperNew->next = NULL;
+    		operationNew = (api_operation *)malloc(sizeof(api_operation));
+    		operationNew->sock = _socket;
+    		operationNew->buffer = (char *)malloc(sizeof(char)*512);
+    		operationNew->command = (char *)malloc(sizeof(char)*512);
+		    operationNew->url = (char *)malloc(sizeof(char)*512);
+		    operationNew->value = (char *)malloc(sizeof(char)*512);
+		    operationNew->next = NULL;
 
-    		// Primera vez
-    		if (_api->operation == NULL)
+    		if (api->operation == NULL)
 	        {
-	        	_api->operation = (api_operation *)malloc(sizeof(api_operation));
-	        	_api->operation = apioperNew;
+	        	api->operation = (api_operation *)malloc(sizeof(api_operation));
+	        	api->operation = operationNew;
 	        }else{
-	        	apioperLast = _api->operation;
+
+	        	operationLast = api->operation;
     		
-	    		while( apioperLast->next ){
-	    			apioperLast = apioperLast->next;
+	    		while( operationLast->next ){
+	    			operationLast = operationLast->next;
 	    		}
 
-	    		apioperLast->next = apioperNew;
+	    		operationLast->next = operationNew;
 	        }
 
-    		fcntl(apioperNew->sock, F_SETFL, O_NONBLOCK);
+    		fcntl(operationNew->sock, F_SETFL, O_NONBLOCK);
     	}
 
     	printf("Ok api\n");
@@ -101,8 +139,14 @@ int api_new_connection( api_handler * api ){
 
 }
 
+/*
+ * Busca nueva entrada de mensajes.
+ * Si encuentra, api_operation se completa.
+ */
 void api_read( api_operation * apioper ){
 	
+	if (apioper->sock == -1) return;
+
 	int n;
 	fd_set readfds;
 	struct timespec timeout;			
@@ -112,8 +156,6 @@ void api_read( api_operation * apioper ){
 	const sigset_t sigmask;				
 	char buff;
 	char * token = NULL;
-
-	//api_operation * apioper = apioper;
 
     FD_ZERO (&readfds);
 	FD_SET (apioper->sock, &readfds);
@@ -128,23 +170,39 @@ void api_read( api_operation * apioper ){
 			 	&timeout,
 			 	&sigmask);
 
-	vaciar(apioper->command);
-	vaciar(apioper->buffer);
+	if (status_select == -1)
+	{
+		// Conexion cerrada
+		// Queda el espacio vacio
+		// Habria que hacer una tarea de acomodamiento
+		close_api(apioper->sock);
+		apioper->sock = -1;
+		free(apioper->buffer);
+		free(apioper->command);
+		free(apioper->url);
+		free(apioper->value);
+		return;
+	}
+
+	clear(apioper->command);
+	clear(apioper->buffer);
+	clear(apioper->value);
 
 	if (apioper->sock > 0 && status_select > 0)
 	{
 		int i = 0;
 		while (1){
-
 			n = read(apioper->sock, &buff, 1 );
-
 			if ( n < 0 ) break;	// Fin de mensaje
-			if ( n == 0 ) { // El cliente no esta mas
+			if ( n == 0 ) {
 				close_api(apioper->sock);
+				apioper->sock = -1;
 				free(apioper->buffer);
+				free(apioper->command);
+				free(apioper->url);
+				free(apioper->value);
 				break;
 			}
-
 			if (apioper->buffer == NULL)
 				apioper->buffer = (char *)malloc(sizeof(char)*512);
 
@@ -154,17 +212,23 @@ void api_read( api_operation * apioper ){
 		if (apioper->buffer != NULL)
         {
         	*(apioper->buffer + i) = '\0';
+
             z = 0;
             while ((token = strsep(&apioper->buffer, "_")) != NULL){
                 if (z == 0) apioper->command = token;
                 if (z == 1) apioper->client_id = atoi(token);
                 if (z == 2) apioper->url = token;
+                if (z == 3) apioper->value = token;
                 z++;
             }
+            printf("%s %d %s %s\n", apioper->command, apioper->client_id, apioper->url, apioper->value);
         }
 	}
 }
 
+/*
+ * Escribe mensaje en el socket de la operacion.
+ */
 void api_write( api_operation * apioper , char * string){
 	int n;
 	if ( (n = write( apioper->sock, string, (int) strlen( string ) )) < 0 )
@@ -173,10 +237,39 @@ void api_write( api_operation * apioper , char * string){
 	}
 }
 
+/*
+ * Notifica a todas las operaciones que necesitan datos de clientID y uriP
+ */
+void api_notify( api_handler * api, uint16_t clientID, lwm2m_uri_t * uriP, uint8_t * data){
+
+	char * urlBuff = (char *)malloc(sizeof(char)*255);
+
+	uri_toString(uriP, urlBuff, 255, NULL);
+
+	for( api_operation * apioper = api->operation;
+             apioper != NULL; 
+             apioper = apioper->next )
+    {
+        if ( apioper->sock > 0 &&
+         	 apioper->client_id == clientID &&
+         	 strcmp(urlBuff, apioper->url) == 0)
+        {
+        	api_write(apioper, (char *)data);
+        }
+
+    }
+}
+
+/*
+ * Cierra un socket
+ */
 void close_api( int socket ){
 	close(socket);
 }
 
+/*
+ * Lista las apps conectadas a la api
+ */
 int api_list_clients( api_handler * api ){
 	int total = -1;
 	api_operation * apioper;
@@ -186,7 +279,10 @@ int api_list_clients( api_handler * api ){
 	return total;
 }
 
-void vaciar(char *buff)
+/*
+ * Limpia el buffer
+ */
+void clear(char *buff)
 {
 	if (buff == NULL) return;
 	int i;
