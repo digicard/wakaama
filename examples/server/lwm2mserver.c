@@ -999,7 +999,7 @@ int main(int argc, char *argv[])
                     in_port_t port;
                     connection_t * connP;
 
-					s[0] = 0;
+                    s[0] = 0;
                     if (AF_INET == addr.ss_family)
                     {
                         struct sockaddr_in *saddr = (struct sockaddr_in *)&addr;
@@ -1055,108 +1055,115 @@ int main(int argc, char *argv[])
         }
 
         api_new_connection(api);
-
+        printf("\n\n");
         for( api_operation * apioper = api->operation;
              apioper != NULL; 
              apioper = apioper->next )
         {
-            char response[1024] = "\0";
-            api_read(apioper);
-
-            if ( apioper->command != NULL )
+            printf("Preparando para leer app %d \n", apioper->sock);
+            if (apioper->sock <= 0)
             {
-                if ( strcmp(apioper->command, "list") == 0 )
+                continue;
+            }
+            char response[1024] = "\0";
+            //printf("Preparando para leer app %d \n", apioper->sock);
+            if ( api_read(apioper) )
+            {
+                if ( apioper->has_message )
                 {
-                    if (lwm2mH->clientList == NULL)
+                    if ( strcmp(apioper->command, "list") == 0 )
                     {
-                        api_write(apioper, "list_0");
-                    }else{
-                        
-                        sprintf(response, "list_");
-                        
-                        for ( lwm2m_client_t * targetP = lwm2mH->clientList;
-                              targetP != NULL;
-                              targetP = targetP->next )
+                        if (lwm2mH->clientList == NULL)
                         {
-                            lwm2m_client_object_t * objectP;
+                            api_write(apioper, "list_0");
+                        }else{
                             
-                            sprintf(response, 
-                                "%sclient/%d_name/%s_binding/%s_msisdn/%s_path/%s_lifetime/%d_", 
-                                response, 
-                                targetP->internalID,
-                                targetP->name,
-                                prv_dump_binding(targetP->binding),
-                                targetP->msisdn,
-                                targetP->altPath,
-                                targetP->lifetime);
-
-                            sprintf(response, "%sobjects-", response);
-
-                            for (objectP = targetP->objectList; objectP != NULL ; objectP = objectP->next)
+                            sprintf(response, "list_");
+                            
+                            for ( lwm2m_client_t * targetP = lwm2mH->clientList;
+                                  targetP != NULL;
+                                  targetP = targetP->next )
                             {
-                                if (objectP->instanceList == NULL)
-                                {
-                                    sprintf(response, "%s/%d-", response, objectP->id);
-                                }
-                                else
-                                {
-                                    lwm2m_list_t * instanceP;
+                                lwm2m_client_object_t * objectP;
+                                
+                                sprintf(response, 
+                                    "%sclient/%d_name/%s_binding/%s_msisdn/%s_path/%s_lifetime/%d_", 
+                                    response, 
+                                    targetP->internalID,
+                                    targetP->name,
+                                    prv_dump_binding(targetP->binding),
+                                    targetP->msisdn,
+                                    targetP->altPath,
+                                    targetP->lifetime);
 
-                                    for (instanceP = objectP->instanceList; instanceP != NULL ; instanceP = instanceP->next)
+                                sprintf(response, "%sobjects-", response);
+
+                                for (objectP = targetP->objectList; objectP != NULL ; objectP = objectP->next)
+                                {
+                                    if (objectP->instanceList == NULL)
                                     {
-                                        sprintf(response, "%s/%d/%d-", response, objectP->id, instanceP->id);
+                                        sprintf(response, "%s/%d-", response, objectP->id);
+                                    }
+                                    else
+                                    {
+                                        lwm2m_list_t * instanceP;
+
+                                        for (instanceP = objectP->instanceList; instanceP != NULL ; instanceP = instanceP->next)
+                                        {
+                                            sprintf(response, "%s/%d/%d-", response, objectP->id, instanceP->id);
+                                        }
                                     }
                                 }
+                                sprintf(response, "%s_", response);
                             }
-                            sprintf(response, "%s_", response);
+                            api_write(apioper, response);
                         }
-                        api_write(apioper, response);
                     }
-                }
 
-                if ( strcmp(apioper->command, "read") == 0 )
-                {
-                    lwm2m_uri_t uri;
-                    lwm2m_stringToUri(apioper->url, strlen(apioper->url), &uri);
-                    lwm2m_dm_read(lwm2mH, apioper->client_id, &uri, prv_result_callback, NULL);
-                }
-
-                if ( strcmp(apioper->command, "observe") == 0 )
-                {
-                    int result;
-                    lwm2m_uri_t uri;
-
-                    result = lwm2m_stringToUri(apioper->url, strlen(apioper->url), &uri);
-                    result = lwm2m_observe(lwm2mH, apioper->client_id, &uri, prv_notify_callback, NULL );
-
-                    if (result == 0)
+                    if ( strcmp(apioper->command, "read") == 0 )
                     {
-                        fprintf(stdout, "OK");
+                        lwm2m_uri_t uri;
+                        lwm2m_stringToUri(apioper->url, strlen(apioper->url), &uri);
+                        lwm2m_dm_read(lwm2mH, apioper->client_id, &uri, prv_result_callback, NULL);
                     }
-                    else
-                    {
-                        prv_print_error(result);
-                    }
-                }
 
-                if ( strcmp(apioper->command, "write") == 0 )
-                {
-                    int result;
-                    lwm2m_uri_t uri;
-
-                    result = lwm2m_stringToUri(apioper->url, strlen(apioper->url), &uri);
-                    result = lwm2m_dm_write(lwm2mH, apioper->client_id, &uri, LWM2M_CONTENT_TEXT, (uint8_t *)apioper->value, strlen(apioper->value), prv_result_callback, NULL );
-                    
-                    if (result == 0)
+                    if ( strcmp(apioper->command, "observe") == 0 )
                     {
-                        fprintf(stdout, "OK");
-                    }
-                    else
-                    {
-                        prv_print_error(result);
-                    }
-                }
+                        int result;
+                        lwm2m_uri_t uri;
 
+                        result = lwm2m_stringToUri(apioper->url, strlen(apioper->url), &uri);
+                        result = lwm2m_observe(lwm2mH, apioper->client_id, &uri, prv_notify_callback, NULL );
+
+                        if (result == 0)
+                        {
+                            fprintf(stdout, "OK");
+                        }
+                        else
+                        {
+                            prv_print_error(result);
+                        }
+                    }
+
+                    if ( strcmp(apioper->command, "write") == 0 )
+                    {
+                        int result;
+                        lwm2m_uri_t uri;
+
+                        result = lwm2m_stringToUri(apioper->url, strlen(apioper->url), &uri);
+                        result = lwm2m_dm_write(lwm2mH, apioper->client_id, &uri, LWM2M_CONTENT_TEXT, (uint8_t *)apioper->value, strlen(apioper->value), prv_result_callback, NULL );
+                        
+                        if (result == 0)
+                        {
+                            fprintf(stdout, "OK");
+                        }
+                        else
+                        {
+                            prv_print_error(result);
+                        }
+                    }
+
+                }   
             }
 
         }

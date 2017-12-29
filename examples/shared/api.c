@@ -82,6 +82,7 @@ int api_new_connection( api_handler * api ){
 	const sigset_t sigmask;				//	Puntero a la mascara de la señal del socket leido
 	int _socket;
 	int index;
+	int count;
 
 	api_operation * operationLast, * operationNew;
 
@@ -115,6 +116,7 @@ int api_new_connection( api_handler * api ){
 		    operationNew->url = (char *)malloc(sizeof(char)*512);
 		    operationNew->value = (char *)malloc(sizeof(char)*512);
 		    operationNew->next = NULL;
+		    operationNew->before = NULL;
 
     		if (api->operation == NULL)
 	        {
@@ -124,10 +126,14 @@ int api_new_connection( api_handler * api ){
 	        	operationLast = api->operation;
 	    		while( operationLast->next ){
 	    			operationLast = operationLast->next;
+	    			count++;
 	    		}
 	    		operationLast->next = operationNew;
+	    		operationNew->before = operationLast;
 	        }
     		fcntl(operationNew->sock, F_SETFL, O_NONBLOCK);
+
+    		printf("\n Hay %d operaciones a traves de API.\n", count);
 
     	}
     	printf("Ok api\n");
@@ -140,14 +146,14 @@ int api_new_connection( api_handler * api ){
  * en este punto para asegurar la comunicacion.
  * Si encuentra, api_operation se completa.
  */
-void api_read( api_operation * apioper ){
+int api_read( api_operation * apioper ){
 	
 	clear(apioper->command);
 	clear(apioper->buffer);
 	clear(apioper->value);
 	apioper->has_message = 0;
 
-	if (apioper->sock == -1) return;
+	if (apioper->sock == -1) return -1;
 
 	int n;
 	fd_set readfds;
@@ -165,6 +171,7 @@ void api_read( api_operation * apioper ){
 	scount = apioper->sock+1;
 	timeout.tv_sec = 0;
 	timeout.tv_nsec = 1;
+
 	status_select = pselect (scount,
 				&readfds,
 			 	NULL,
@@ -174,6 +181,7 @@ void api_read( api_operation * apioper ){
 
 	if (status_select == -1)
 	{
+		printf("\n -> Conexion cerrada app %d \n", apioper->sock);
 		// Conexion cerrada
 		// Queda el espacio vacio
 		// Habria que hacer una tarea de acomodamiento
@@ -181,7 +189,8 @@ void api_read( api_operation * apioper ){
 		apioper->has_message = 0;
 		apioper->sock = -1;
 		realign(apioper);
-		return;
+		printf("\n -> Desaparece\n");
+		return -1;
 	}
 
 	if (apioper->sock > 0 && status_select > 0)
@@ -214,12 +223,17 @@ void api_read( api_operation * apioper ){
 
         if (n == 0)
         {
+        	printf("\n -> Conexion cerrada app %d \n", apioper->sock);
         	apioper->has_message = 0;
         	close_api(apioper->sock);
         	apioper->sock = -1;
         	realign(apioper);
+        	printf("\n -> Desaparece\n");
+        	return -1;
         }
 	}
+
+	return 1;
 
 }
 
@@ -267,8 +281,8 @@ void close_api( int socket ){
 /*
  * Lista las apps conectadas a la api
  */
-int api_list_clients( api_handler * api ){
-	int total = -1;
+int api_total_clients( api_handler * api ){
+	int total = 0;
 	api_operation * apioper;
 	for(apioper = api->operation; apioper != NULL; apioper = apioper->next){
 		total++;
@@ -288,8 +302,45 @@ void clear(char *buff)
 }
 
 void realign(api_operation * apioper){
+
+	api_operation * before, * next;
+	before = apioper->before;
+	next = apioper->next;
+
+	if (next == NULL)
+	{
+		printf("\n -> Primer y unica conexion \n");
+		free(apioper);
+		apioper = NULL;
+		return;
+	}
+
+	if (!before)
+	{
+		// Before es raiz
+		printf("\n -> Retirando primer operacion de la lista. La raiz pasa a ser %d. \n", apioper->next->sock);
+		apioper = apioper->next;
+		return;
+	}
+
+	printf("ACA Before actual %d por next %d\n", apioper->sock, apioper->next->sock);
+	printf("Operacion anterior %d\n", before);
+	printf("Socket %d\n", next->sock);
+	printf("\nCambiando Anterior\n");
+	printf("Socket %d\n", before->sock);
+	printf("Buffer %s\n", before->buffer);
+	printf("\nCambiando Siguiente\n" );
+	printf("Socket %d\n", next->sock);
+	printf("Buffer %s\n", next->buffer);
+	before->next = next;
+
+	printf("FREE Buffer\n");
 	free(apioper->buffer);
+	printf("FREE Command\n");
 	free(apioper->command);
+	printf("FREE APIOPER\n");
+	free(apioper);
+	printf("FIN\n");
 	//free(apioper->url);
 	//ree(apioper->value);
 }

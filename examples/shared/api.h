@@ -14,6 +14,7 @@ typedef struct _api_operation_
     char * 						value;
     int							has_message;
     struct _api_operation_ * 	next;
+    struct _api_operation_ * 	before;
 } api_operation;
 
 typedef struct
@@ -25,7 +26,7 @@ typedef struct
 api_handler * 	create_api();
 void 			close_api(int socket);
 int 			api_new_connection(api_handler * api);
-void 			api_read(api_operation * apicli);
+int 			api_read(api_operation * apicli);
 void 			api_write( api_operation * apicli , char * string);
-int 			api_list_clients( api_handler * api );
+int 			api_total_clients( api_handler * api );
 void 			api_notify( api_handler * api, uint16_t clientID, lwm2m_uri_t * uriP, uint8_t * data);
