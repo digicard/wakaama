@@ -323,24 +323,13 @@ void realign(api_operation * apioper){
 		return;
 	}
 
-	printf("ACA Before actual %d por next %d\n", apioper->sock, apioper->next->sock);
-	printf("Operacion anterior %d\n", before);
-	printf("Socket %d\n", next->sock);
-	printf("\nCambiando Anterior\n");
-	printf("Socket %d\n", before->sock);
-	printf("Buffer %s\n", before->buffer);
-	printf("\nCambiando Siguiente\n" );
-	printf("Socket %d\n", next->sock);
-	printf("Buffer %s\n", next->buffer);
 	before->next = next;
+	
+	printf("El siguiente de %d es %d\n", before->sock, before->next->sock);
 
-	printf("FREE Buffer\n");
 	free(apioper->buffer);
-	printf("FREE Command\n");
 	free(apioper->command);
-	printf("FREE APIOPER\n");
-	free(apioper);
-	printf("FIN\n");
+	//free(apioper);
 	//free(apioper->url);
 	//ree(apioper->value);
 }
