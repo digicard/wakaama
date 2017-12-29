@@ -58,6 +58,7 @@ api_handler * create_api(){
 	
 	if (_api->sock > 0){
         listen(_api->sock,3);
+        printf("SERVER API on localhost:%s \n", localPort);
 	}
 
     return _api;
@@ -135,10 +136,17 @@ int api_new_connection( api_handler * api ){
 
 /*
  * Busca nueva entrada de mensajes.
+ * Es importante controlar toda la estructura,
+ * en este punto para asegurar la comunicacion.
  * Si encuentra, api_operation se completa.
  */
 void api_read( api_operation * apioper ){
 	
+	clear(apioper->command);
+	clear(apioper->buffer);
+	clear(apioper->value);
+	apioper->has_message = 0;
+
 	if (apioper->sock == -1) return;
 
 	int n;
@@ -170,17 +178,12 @@ void api_read( api_operation * apioper ){
 		// Queda el espacio vacio
 		// Habria que hacer una tarea de acomodamiento
 		close_api(apioper->sock);
+		apioper->has_message = 0;
 		apioper->sock = -1;
-		free(apioper->buffer);
-		free(apioper->command);
-		free(apioper->url);
-		free(apioper->value);
+		realign(apioper);
 		return;
 	}
 
-	clear(apioper->command);
-	clear(apioper->buffer);
-	clear(apioper->value);
 	if (apioper->sock > 0 && status_select > 0)
 	{
 		int i = 0;
@@ -205,9 +208,19 @@ void api_read( api_operation * apioper ){
                 if (z == 3) apioper->value = token;
                 z++;
             }
-            printf("%s %d %s %s\n", apioper->command, apioper->client_id, apioper->url, apioper->value);
+            //printf("%s %d %s %s\n", apioper->command, apioper->client_id, apioper->url, apioper->value);
+            apioper->has_message = 1;
+        }
+
+        if (n == 0)
+        {
+        	apioper->has_message = 0;
+        	close_api(apioper->sock);
+        	apioper->sock = -1;
+        	realign(apioper);
         }
 	}
+
 }
 
 /*
@@ -272,4 +285,11 @@ void clear(char *buff)
 	int i;
 	for (i = 0; *(buff + i) != '\0'; ++i)
 		*(buff + i) = 0;
+}
+
+void realign(api_operation * apioper){
+	free(apioper->buffer);
+	free(apioper->command);
+	//free(apioper->url);
+	//ree(apioper->value);
 }

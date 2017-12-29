@@ -12,6 +12,7 @@ typedef struct _api_operation_
     char * 						url;
     int 						client_id;
     char * 						value;
+    int							has_message;
     struct _api_operation_ * 	next;
 } api_operation;
 
