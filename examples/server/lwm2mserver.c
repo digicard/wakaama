@@ -193,26 +193,26 @@ static void prv_result_callback(uint16_t clientID,
                                 int dataLength,
                                 void * userData)
 {
-    fprintf(stdout, "\r\nClient #%d /%d", clientID, uriP->objectId);
-    if (LWM2M_URI_IS_SET_INSTANCE(uriP))
-        fprintf(stdout, "/%d", uriP->instanceId);
-    else if (LWM2M_URI_IS_SET_RESOURCE(uriP))
-        fprintf(stdout, "/");
-    if (LWM2M_URI_IS_SET_RESOURCE(uriP))
-            fprintf(stdout, "/%d", uriP->resourceId);
-    fprintf(stdout, " : ");
-    print_status(stdout, status);
-    fprintf(stdout, "\r\n");
+    //fprintf(stdout, "\r\nClient #%d /%d", clientID, uriP->objectId);
+    //if (LWM2M_URI_IS_SET_INSTANCE(uriP))
+        //fprintf(stdout, "/%d", uriP->instanceId);
+    //else if (LWM2M_URI_IS_SET_RESOURCE(uriP))
+        //fprintf(stdout, "/");
+    //if (LWM2M_URI_IS_SET_RESOURCE(uriP))
+            //fprintf(stdout, "/%d", uriP->resourceId);
+    //fprintf(stdout, " : ");
+    //print_status(stdout, status);
+    //fprintf(stdout, "\r\n");
 
-    output_data(stdout, format, data, dataLength, 1);
+    //output_data(stdout, format, data, dataLength, 1);
 
     if (data != NULL)
     {
         api_notify(api, clientID, uriP, data);
     }
 
-    fprintf(stdout, "\r\n> ");
-    fflush(stdout);
+    //fprintf(stdout, "\r\n> ");
+    //fflush(stdout);
 }
 
 static void prv_notify_callback(uint16_t clientID,
@@ -223,21 +223,21 @@ static void prv_notify_callback(uint16_t clientID,
                                 int dataLength,
                                 void * userData)
 {
-    fprintf(stdout, "\r\nNotify from client #%d /%d", clientID, uriP->objectId);
-    if (LWM2M_URI_IS_SET_INSTANCE(uriP))
-        fprintf(stdout, "/%d", uriP->instanceId);
-    else if (LWM2M_URI_IS_SET_RESOURCE(uriP))
-        fprintf(stdout, "/");
-    if (LWM2M_URI_IS_SET_RESOURCE(uriP))
-            fprintf(stdout, "/%d", uriP->resourceId);
-    fprintf(stdout, " number %d\r\n", count);
+    //fprintf(stdout, "\r\nNotify from client #%d /%d", clientID, uriP->objectId);
+    //if (LWM2M_URI_IS_SET_INSTANCE(uriP))
+        //fprintf(stdout, "/%d", uriP->instanceId);
+    //else if (LWM2M_URI_IS_SET_RESOURCE(uriP))
+        //fprintf(stdout, "/");
+    //if (LWM2M_URI_IS_SET_RESOURCE(uriP))
+        //fprintf(stdout, "/%d", uriP->resourceId);
+    //fprintf(stdout, " number %d\r\n", count);
 
-    output_data(stdout, format, data, dataLength, 1);
+    //output_data(stdout, format, data, dataLength, 1);
 
     api_notify(api, clientID, uriP, data);
 
-    fprintf(stdout, "\r\n> ");
-    fflush(stdout);
+    //fprintf(stdout, "\r\n> ");
+    //fflush(stdout);
 }
 
 static void prv_read_client(char * buffer,
@@ -957,8 +957,8 @@ int main(int argc, char *argv[])
         FD_SET(sock, &readfds);
         FD_SET(STDIN_FILENO, &readfds);
 
-        tv.tv_sec = 1;
-        tv.tv_usec = 0;
+        tv.tv_sec = 0;
+        tv.tv_usec = 1;
         
         result = lwm2m_step(lwm2mH, &(tv.tv_sec));
         if (result != 0)
@@ -1055,20 +1055,26 @@ int main(int argc, char *argv[])
         }
 
         api_new_connection(api);
-        printf("\n\n");
+
         for( api_operation * apioper = api->operation;
              apioper != NULL; 
              apioper = apioper->next )
         {
-            printf("Preparando para leer app %d \n", apioper->sock);
+
+            //printf("Preparando para leer app %d \n", apioper->sock);
+
             if (apioper->sock <= 0)
             {
                 continue;
             }
+
             char response[1024] = "\0";
+            
             //printf("Preparando para leer app %d \n", apioper->sock);
-            if ( api_read(apioper) )
+
+            if ( api_operation_check(apioper) )
             {
+
                 if ( apioper->has_message )
                 {
                     if ( strcmp(apioper->command, "list") == 0 )
@@ -1164,6 +1170,10 @@ int main(int argc, char *argv[])
                     }
 
                 }   
+
+                if (apioper->closed)
+                    api_remove_operation(api, apioper);
+
             }
 
         }

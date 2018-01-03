@@ -118,6 +118,8 @@ int api_new_connection( api_handler * api ){
 		    operationNew->next = NULL;
 		    operationNew->before = NULL;
 
+		    count++;
+
     		if (api->operation == NULL)
 	        {
 	        	api->operation = (api_operation *)malloc(sizeof(api_operation));
@@ -133,7 +135,7 @@ int api_new_connection( api_handler * api ){
 	        }
     		fcntl(operationNew->sock, F_SETFL, O_NONBLOCK);
 
-    		printf("\n Hay %d operaciones a traves de API.\n", count);
+    		printf("\n Hay %d operaciones a travez de API.\n", count);
 
     	}
     	printf("Ok api\n");
@@ -146,12 +148,13 @@ int api_new_connection( api_handler * api ){
  * en este punto para asegurar la comunicacion.
  * Si encuentra, api_operation se completa.
  */
-int api_read( api_operation * apioper ){
+int api_operation_check( api_operation * apioper ){
 	
 	clear(apioper->command);
 	clear(apioper->buffer);
 	clear(apioper->value);
 	apioper->has_message = 0;
+	apioper->closed = 0;
 
 	if (apioper->sock == -1) return -1;
 
@@ -181,16 +184,8 @@ int api_read( api_operation * apioper ){
 
 	if (status_select == -1)
 	{
-		printf("\n -> Conexion cerrada app %d \n", apioper->sock);
-		// Conexion cerrada
-		// Queda el espacio vacio
-		// Habria que hacer una tarea de acomodamiento
-		close_api(apioper->sock);
-		apioper->has_message = 0;
-		apioper->sock = -1;
-		realign(apioper);
-		printf("\n -> Desaparece\n");
-		return -1;
+		apioper->closed = 1;
+		return 1;
 	}
 
 	if (apioper->sock > 0 && status_select > 0)
@@ -219,17 +214,12 @@ int api_read( api_operation * apioper ){
             }
             //printf("%s %d %s %s\n", apioper->command, apioper->client_id, apioper->url, apioper->value);
             apioper->has_message = 1;
+
         }
 
         if (n == 0)
         {
-        	printf("\n -> Conexion cerrada app %d \n", apioper->sock);
-        	apioper->has_message = 0;
-        	close_api(apioper->sock);
-        	apioper->sock = -1;
-        	realign(apioper);
-        	printf("\n -> Desaparece\n");
-        	return -1;
+        	apioper->closed = 1;
         }
 	}
 
@@ -257,15 +247,22 @@ void api_notify( api_handler * api, uint16_t clientID, lwm2m_uri_t * uriP, uint8
 
 	uri_toString(uriP, urlBuff, 255, NULL);
 
+	printf("Notificacion de cliente: %d\n", clientID);
+	printf("\t con url : %s\n", urlBuff);
+
 	for( api_operation * apioper = api->operation;
              apioper != NULL; 
              apioper = apioper->next )
     {
+    	printf("%d - Cliente %d url %s...", apioper->sock, apioper->client_id, apioper->url);
         if ( apioper->sock > 0 &&
          	 apioper->client_id == clientID &&
          	 strcmp(urlBuff, apioper->url) == 0)
         {
+        	printf("Si\n");
         	api_write(apioper, (char *)data);
+        }else{
+        	printf("No\n");
         }
 
     }
@@ -301,35 +298,59 @@ void clear(char *buff)
 		*(buff + i) = 0;
 }
 
-void realign(api_operation * apioper){
+void api_remove_operation(api_handler * api, api_operation * apioper){
 
-	api_operation * before, * next;
-	before = apioper->before;
-	next = apioper->next;
+	api_operation * before, * next, * current;
 
-	if (next == NULL)
+	current = api->operation;
+
+	while( 1 ){
+		if (current->sock == apioper->sock) break;
+		current = current->next;
+	}
+
+	before = current->before;
+	next = current->next;
+
+	close_api(apioper->sock);
+	
+	printf("==> Conexion cerrada de operacion %d \n", apioper->sock);
+
+	if (next == NULL && !before)
 	{
 		printf("\n -> Primer y unica conexion \n");
 		free(apioper);
 		apioper = NULL;
+		api->operation = NULL;
+		printf("\n -> Desaparece\n");
 		return;
 	}
 
 	if (!before)
 	{
-		// Before es raiz
 		printf("\n -> Retirando primer operacion de la lista. La raiz pasa a ser %d. \n", apioper->next->sock);
-		apioper = apioper->next;
+		api->operation = apioper->next;
+		api->operation->before = NULL;
+		free(apioper);
+		printf("\n -> Desaparece\n");
 		return;
 	}
 
-	before->next = next;
-	
-	printf("El siguiente de %d es %d\n", before->sock, before->next->sock);
+	if (next == NULL)
+	{
+		before->next = NULL;
+		current->next = NULL;
+		current->before = NULL;
+		printf("\n -> Ultimo %d\n", before->sock);
+	}else{
+		before->next = next;
+		next->before = before;
+		current->next = NULL;
+		current->before = NULL;
+		printf("\n -> Enlace de %d con %d\n", before->sock, next->sock);
+	}
 
-	free(apioper->buffer);
-	free(apioper->command);
-	//free(apioper);
-	//free(apioper->url);
-	//ree(apioper->value);
+	printf("\n -> Desaparece\n");
+
+	free(apioper);
 }
