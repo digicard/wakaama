@@ -92,6 +92,7 @@ typedef struct _prv_instance_
     uint16_t shortID;               // matches lwm2m_list_t::id
     uint8_t  test;
     double   dec;
+    char     test_string[255];
 } prv_instance_t;
 
 static void prv_output_buffer(uint8_t * buffer,
@@ -149,6 +150,7 @@ static uint8_t prv_read(uint16_t instanceId,
         *numDataP = 2;
         (*dataArrayP)[0].id = 1;
         (*dataArrayP)[1].id = 3;
+        (*dataArrayP)[2].id = 4;
     }
 
     for (i = 0 ; i < *numDataP ; i++)
@@ -162,6 +164,9 @@ static uint8_t prv_read(uint16_t instanceId,
             return COAP_405_METHOD_NOT_ALLOWED;
         case 3:
             lwm2m_data_encode_float(targetP->dec, *dataArrayP + i);
+            break;
+        case 4:
+            lwm2m_data_encode_string(targetP->test_string, *dataArrayP + i);
             break;
         default:
             return COAP_404_NOT_FOUND;
@@ -240,6 +245,9 @@ static uint8_t prv_write(uint16_t instanceId,
             {
                 return COAP_400_BAD_REQUEST;
             }
+            break;
+        case 4:
+            strncpy(targetP->test_string, (char*)dataArray[i].value.asBuffer.buffer, dataArray[i].value.asBuffer.length);
             break;
         default:
             return COAP_404_NOT_FOUND;
@@ -327,9 +335,9 @@ void display_test_object(lwm2m_object_t * object)
     prv_instance_t * instance = (prv_instance_t *)object->instanceList;
     while (instance != NULL)
     {
-        fprintf(stdout, "    /%u/%u: shortId: %u, test: %u\r\n",
+        fprintf(stdout, "    /%u/%u: shortId: %u, test: %u, test_string: %s\r\n",
                 object->objID, instance->shortID,
-                instance->shortID, instance->test);
+                instance->shortID, instance->test, instance->test_string);
         instance = (prv_instance_t *)instance->next;
     }
 #endif
@@ -357,6 +365,7 @@ lwm2m_object_t * get_test_object(void)
             targetP->shortID = 10 + i;
             targetP->test    = 20 + i;
             targetP->dec     = -30 + i + (double)i/100.0;
+            memcpy (targetP->test_string, "test", 4);
             testObj->instanceList = LWM2M_LIST_ADD(testObj->instanceList, targetP);
         }
         /*

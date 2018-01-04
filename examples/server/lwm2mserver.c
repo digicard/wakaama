@@ -1129,8 +1129,20 @@ int main(int argc, char *argv[])
                     if ( strcmp(apioper->command, "read") == 0 )
                     {
                         lwm2m_uri_t uri;
-                        lwm2m_stringToUri(apioper->url, strlen(apioper->url), &uri);
-                        lwm2m_dm_read(lwm2mH, apioper->client_id, &uri, prv_result_callback, NULL);
+                        int result;
+
+                        result = lwm2m_stringToUri(apioper->url, strlen(apioper->url), &uri);
+                        result = lwm2m_dm_read(lwm2mH, apioper->client_id, &uri, prv_result_callback, NULL);
+
+                        if (result == 0)
+                        {
+                            fprintf(stdout, "OK");
+                        }
+                        else
+                        {
+                            api_notify(api, apioper->client_id, &uri, "Error en la operacion");
+                            prv_print_error(result);
+                        }
                     }
 
                     if ( strcmp(apioper->command, "observe") == 0 )
@@ -1147,6 +1159,7 @@ int main(int argc, char *argv[])
                         }
                         else
                         {
+                            api_notify(api, apioper->client_id, &uri, "Error en la operacion");
                             prv_print_error(result);
                         }
                     }
@@ -1161,10 +1174,12 @@ int main(int argc, char *argv[])
                         
                         if (result == 0)
                         {
+                            api_notify(api, apioper->client_id, &uri, "ok");
                             fprintf(stdout, "OK");
                         }
                         else
                         {
+                            api_notify(api, apioper->client_id, &uri, "Error en la operacion");
                             prv_print_error(result);
                         }
                     }

@@ -82,7 +82,6 @@ int api_new_connection( api_handler * api ){
 	const sigset_t sigmask;				//	Puntero a la mascara de la señal del socket leido
 	int _socket;
 	int index;
-	int count;
 
 	api_operation * operationLast, * operationNew;
 
@@ -118,8 +117,6 @@ int api_new_connection( api_handler * api ){
 		    operationNew->next = NULL;
 		    operationNew->before = NULL;
 
-		    count++;
-
     		if (api->operation == NULL)
 	        {
 	        	api->operation = (api_operation *)malloc(sizeof(api_operation));
@@ -128,14 +125,11 @@ int api_new_connection( api_handler * api ){
 	        	operationLast = api->operation;
 	    		while( operationLast->next ){
 	    			operationLast = operationLast->next;
-	    			count++;
 	    		}
 	    		operationLast->next = operationNew;
 	    		operationNew->before = operationLast;
 	        }
     		fcntl(operationNew->sock, F_SETFL, O_NONBLOCK);
-
-    		printf("\n Hay %d operaciones a travez de API.\n", count);
 
     	}
     	printf("Ok api\n");
@@ -212,7 +206,7 @@ int api_operation_check( api_operation * apioper ){
                 if (z == 3) apioper->value = token;
                 z++;
             }
-            //printf("%s %d %s %s\n", apioper->command, apioper->client_id, apioper->url, apioper->value);
+
             apioper->has_message = 1;
 
         }

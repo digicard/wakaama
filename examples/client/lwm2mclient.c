@@ -80,6 +80,10 @@
 #include <errno.h>
 #include <signal.h>
 
+#include "api.h"
+
+api_handler * api = NULL;
+
 #define MAX_PACKET_SIZE 1024
 #define DEFAULT_SERVER_IPV6 "[::1]"
 #define DEFAULT_SERVER_IPV4 "127.0.0.1"
@@ -969,7 +973,7 @@ int main(int argc, char *argv[])
      *This call an internal function that create an IPV6 socket on the port 5683.
      */
     fprintf(stderr, "Trying to bind LWM2M Client to port %s\r\n", localPort);
-    data.sock = create_socket(localPort, data.addressFamily);
+    data.sock = create_socket(localPort, data.addressFamily, SOCK_DGRAM);
     if (data.sock < 0)
     {
         fprintf(stderr, "Failed to open socket: %d %s\r\n", errno, strerror(errno));
@@ -1145,6 +1149,16 @@ int main(int argc, char *argv[])
     }
     fprintf(stdout, "LWM2M Client \"%s\" started on port %s\r\n", name, localPort);
     fprintf(stdout, "> "); fflush(stdout);
+
+
+    api = create_api();
+
+    if (api->sock < 0)
+    {
+        fprintf(stderr, "Error opening socket: %d\r\n", errno);
+    }
+
+
     /*
      * We now enter in a while loop that will handle the communications from the server
      */
@@ -1185,6 +1199,7 @@ int main(int argc, char *argv[])
         {
             tv.tv_sec = 60;
         }
+        tv.tv_sec = 1;
         tv.tv_usec = 0;
 
         FD_ZERO(&readfds);
@@ -1353,6 +1368,38 @@ int main(int argc, char *argv[])
                 {
                     fprintf(stdout, "\r\n");
                 }
+            }
+        }
+
+
+
+        api_new_connection(api);
+
+        for( api_operation * apioper = api->operation;
+             apioper != NULL; 
+             apioper = apioper->next )
+        {
+
+            if (apioper->sock <= 0) continue;
+
+            char response[1024] = "\0";
+
+            if ( api_operation_check(apioper) )
+            {
+                if ( apioper->has_message )
+                {
+                    if ( strcmp(apioper->command, "change") == 0 )
+                    {
+                        int result;
+                        lwm2m_uri_t uri;
+                        lwm2m_stringToUri(apioper->url, strlen(apioper->url), &uri);
+                        handle_value_changed(lwm2mH, &uri, apioper->value, strlen(apioper->value));
+                    }
+                }   
+
+                if (apioper->closed)
+                    api_remove_operation(api, apioper);
+
             }
         }
     }
