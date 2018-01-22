@@ -80,9 +80,14 @@
 #include <errno.h>
 #include <signal.h>
 
+#include <cjson/cJSON.h>
+#include <fcntl.h>
 #include "api.h"
 
 api_handler * api = NULL;
+
+#define OBJ_COUNT_ 9
+uint16_t OBJ_COUNT=OBJ_COUNT_;
 
 #define MAX_PACKET_SIZE 1024
 #define DEFAULT_SERVER_IPV6 "[::1]"
@@ -90,9 +95,6 @@ api_handler * api = NULL;
 
 int g_reboot = 0;
 static int g_quit = 0;
-
-#define OBJ_COUNT 9
-lwm2m_object_t * objArray[OBJ_COUNT];
 
 // only backup security and server objects
 # define BACKUP_OBJECT_COUNT 2
@@ -820,6 +822,7 @@ int main(int argc, char *argv[])
     int opt;
     bool bootstrapRequested = false;
     bool serverPortChanged = false;
+    lwm2m_object_t * * objArray=(lwm2m_object_t **)malloc(sizeof(lwm2m_object_t *)*OBJ_COUNT_);
 
 #ifdef LWM2M_BOOTSTRAP
     lwm2m_client_state_t previousState = STATE_INITIAL;
@@ -1121,6 +1124,63 @@ int main(int argc, char *argv[])
     data.lwm2mH = lwm2mH;
 #endif
 
+    /**********************************************************************/
+
+    int fd;
+    char * BUFF=(char *)malloc(sizeof(char)*MAX_PACKET_SIZE);
+    char * jsonStr=NULL, * aux;
+    uint16_t S_BUFF;
+
+    fd=open("./DS_OBJ.json", O_RDONLY);
+
+    if (fd<=0){
+        fprintf(stderr, "open() of Json file failed: 0x%X\r\n", fd);
+        return -1;
+    }
+
+    do{
+        S_BUFF=read(fd, BUFF,MAX_PACKET_SIZE+1);
+        if(S_BUFF<0){
+            fprintf(stderr, "read() of Json file failed: %d\r\n", fd);  
+            return -1;
+        }
+
+        if(S_BUFF>0){
+
+            if(jsonStr==NULL){
+                jsonStr=(char *)malloc(sizeof(char)*(S_BUFF)+1);
+                jsonStr=strncpy(jsonStr,BUFF,S_BUFF);
+                jsonStr[S_BUFF]=0;
+            }else{
+                aux=(char *)malloc(sizeof(char)*(S_BUFF+1+strlen(jsonStr)));
+                aux=strncpy(aux,jsonStr,strlen(jsonStr));
+                aux[strlen(jsonStr)]=0;
+                BUFF[S_BUFF]=0;
+                aux=strcat(aux,BUFF);
+                free(jsonStr);
+                jsonStr=aux;
+            }
+        }
+    }while (S_BUFF>0);
+
+    free(BUFF);
+    cJSON_InitHooks(NULL);
+    cJSON * root = cJSON_Parse(jsonStr);
+    OBJ_COUNT+=1;
+    lwm2m_object_t * * objArray_AUX=malloc(sizeof(lwm2m_object_t*)*(OBJ_COUNT));
+    memcpy(objArray_AUX,objArray,sizeof(lwm2m_object_t*)*(OBJ_COUNT));
+    free(objArray);
+    objArray=objArray_AUX;
+    objArray[OBJ_COUNT-1]=get_DSDinamic(root);
+    free(jsonStr);
+    
+    /**********************************************************************/
+
+    if(objArray[OBJ_COUNT-1]==0){
+        fprintf(stderr, "Could not create DSDinamic, obj Nº %d\r\n", OBJ_COUNT);  
+        return -1;
+    }
+
     /*
      * We configure the liblwm2m library with the name of the client - which shall be unique for each client -
      * the number of objects we will be passing through and the objects array
@@ -1199,7 +1259,7 @@ int main(int argc, char *argv[])
         {
             tv.tv_sec = 60;
         }
-        tv.tv_sec = 1;
+        tv.tv_sec = 1; // Agregado
         tv.tv_usec = 0;
 
         FD_ZERO(&readfds);
@@ -1318,8 +1378,9 @@ int main(int argc, char *argv[])
                     /*
                      * Display it in the STDERR
                      */
+                    
                     output_buffer(stderr, buffer, numBytes, 0);
-
+                    
                     connP = connection_find(data.connList, &addr, addrLen);
                     if (connP != NULL)
                     {

@@ -52,7 +52,7 @@ api_handler * create_api(){
 	_api = (api_handler *)malloc(sizeof(api_handler));
 
 	int addressFamily = AF_INET;
-	const char * localPort = "5693";
+	const char * localPort = "5694";
 
 	_api->sock = create_socket(localPort, addressFamily, SOCK_STREAM);
 	
@@ -82,6 +82,7 @@ int api_new_connection( api_handler * api ){
 	const sigset_t sigmask;				//	Puntero a la mascara de la señal del socket leido
 	int _socket;
 	int index;
+	int count;
 
 	api_operation * operationLast, * operationNew;
 
@@ -103,7 +104,7 @@ int api_new_connection( api_handler * api ){
 		clilen = sizeof(cli_addr);
 
 		_socket = accept(api->sock, (struct sockaddr *) &cli_addr, &clilen);
-
+		printf("%d\n", _socket);
     	if ( _socket < 0 ){
     		fprintf(stderr, "Error opening socket: %d\r\n", errno);
     	}else{    		
@@ -132,7 +133,6 @@ int api_new_connection( api_handler * api ){
     		fcntl(operationNew->sock, F_SETFL, O_NONBLOCK);
 
     	}
-    	printf("Ok api\n");
 	}
 }
 
@@ -206,7 +206,7 @@ int api_operation_check( api_operation * apioper ){
                 if (z == 3) apioper->value = token;
                 z++;
             }
-
+            //printf("%s %d %s %s\n", apioper->command, apioper->client_id, apioper->url, apioper->value);
             apioper->has_message = 1;
 
         }
@@ -241,25 +241,25 @@ void api_notify( api_handler * api, uint16_t clientID, lwm2m_uri_t * uriP, uint8
 
 	uri_toString(uriP, urlBuff, 255, NULL);
 
-	printf("Notificacion de cliente: %d\n", clientID);
+	printf("\n\n==> Nueva notificacion de operacion\n");
+	printf("\t Cliente: %d\n", clientID);
 	printf("\t con url : %s\n", urlBuff);
+	printf("\t %s \n", (char *)data);
+
+	if ( data == NULL ) return;
 
 	for( api_operation * apioper = api->operation;
              apioper != NULL; 
              apioper = apioper->next )
     {
-    	printf("%d - Cliente %d url %s...", apioper->sock, apioper->client_id, apioper->url);
         if ( apioper->sock > 0 &&
          	 apioper->client_id == clientID &&
          	 strcmp(urlBuff, apioper->url) == 0)
         {
-        	printf("Si\n");
         	api_write(apioper, (char *)data);
-        }else{
-        	printf("No\n");
         }
-
     }
+    printf("\n");
 }
 
 /*
@@ -308,25 +308,28 @@ void api_remove_operation(api_handler * api, api_operation * apioper){
 
 	close_api(apioper->sock);
 	
-	printf("==> Conexion cerrada de operacion %d \n", apioper->sock);
+	printf("\n\n==> Operacion %d\n", apioper->sock);
+	printf("\t -> Command %s\n", apioper->command);
+	printf("\t -> URL %s\n", apioper->url);
+	printf("\t -> Client %d\n", apioper->client_id);
 
 	if (next == NULL && !before)
 	{
-		printf("\n -> Primer y unica conexion \n");
+		printf("-> Primer y unica conexion \n");
 		free(apioper);
 		apioper = NULL;
 		api->operation = NULL;
-		printf("\n -> Desaparece\n");
+		printf("-> Desaparece\n");
 		return;
 	}
 
 	if (!before)
 	{
-		printf("\n -> Retirando primer operacion de la lista. La raiz pasa a ser %d. \n", apioper->next->sock);
+		printf("-> Retirando primer operacion de la lista. La raiz pasa a ser %d. \n", apioper->next->sock);
 		api->operation = apioper->next;
 		api->operation->before = NULL;
 		free(apioper);
-		printf("\n -> Desaparece\n");
+		printf("-> Desaparece\n");
 		return;
 	}
 
@@ -335,16 +338,16 @@ void api_remove_operation(api_handler * api, api_operation * apioper){
 		before->next = NULL;
 		current->next = NULL;
 		current->before = NULL;
-		printf("\n -> Ultimo %d\n", before->sock);
+		printf("-> Ultimo %d\n", before->sock);
 	}else{
 		before->next = next;
 		next->before = before;
 		current->next = NULL;
 		current->before = NULL;
-		printf("\n -> Enlace de %d con %d\n", before->sock, next->sock);
+		printf("-> Enlace de %d con %d\n", before->sock, next->sock);
 	}
 
-	printf("\n -> Desaparece\n");
+	printf("-> Desaparece\n");
 
 	free(apioper);
 }

@@ -957,8 +957,8 @@ int main(int argc, char *argv[])
         FD_SET(sock, &readfds);
         FD_SET(STDIN_FILENO, &readfds);
 
-        tv.tv_sec = 0;
-        tv.tv_usec = 1;
+        tv.tv_sec = 1;
+        tv.tv_usec = 0;
         
         result = lwm2m_step(lwm2mH, &(tv.tv_sec));
         if (result != 0)
