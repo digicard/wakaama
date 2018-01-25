@@ -55,14 +55,14 @@ api_handler * create_api(){
 	const char * localPort = "5694";
 
 	_api->sock = create_socket(localPort, addressFamily, SOCK_STREAM);
-	
+	_api->operation = NULL;
+
 	if (_api->sock > 0){
         listen(_api->sock,3);
         printf("SERVER API on localhost:%s \n", localPort);
 	}
-
+	
     return _api;
-
 }
 
 /*

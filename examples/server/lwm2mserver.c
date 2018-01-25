@@ -1053,7 +1053,7 @@ int main(int argc, char *argv[])
                 }
             }
         }
-
+        
         api_new_connection(api);
 
         for( api_operation * apioper = api->operation;
@@ -1061,16 +1061,9 @@ int main(int argc, char *argv[])
              apioper = apioper->next )
         {
 
-            //printf("Preparando para leer app %d \n", apioper->sock);
-
-            if (apioper->sock <= 0)
-            {
-                continue;
-            }
+            if (apioper->sock <= 0) continue;
 
             char response[1024] = "\0";
-            
-            //printf("Preparando para leer app %d \n", apioper->sock);
 
             if ( api_operation_check(apioper) )
             {
