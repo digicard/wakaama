@@ -799,6 +799,7 @@ void print_usage(void)
     fprintf(stdout, "  -t TIME\tSet the lifetime of the Client. Default: 300\r\n");
     fprintf(stdout, "  -b\t\tBootstrap requested.\r\n");
     fprintf(stdout, "  -c\t\tChange battery level over time.\r\n");
+    fprintf(stdout, "  -a\t\tPort API.\r\n");
 #ifdef WITH_TINYDTLS
     fprintf(stdout, "  -i STRING\tSet the device management or bootstrap server PSK identity. If not set use none secure mode\r\n");
     fprintf(stdout, "  -s HEXSTRING\tSet the device management or bootstrap server Pre-Shared-Key. If not set use none secure mode\r\n");
@@ -823,6 +824,8 @@ int main(int argc, char *argv[])
     bool bootstrapRequested = false;
     bool serverPortChanged = false;
     lwm2m_object_t * * objArray=(lwm2m_object_t **)malloc(sizeof(lwm2m_object_t *)*OBJ_COUNT_);
+
+    const char * port_api = "5694";
 
 #ifdef LWM2M_BOOTSTRAP
     lwm2m_client_state_t previousState = STATE_INITIAL;
@@ -956,6 +959,15 @@ int main(int argc, char *argv[])
             }
             serverPort = argv[opt];
             serverPortChanged = true;
+            break;
+        case 'a':
+            opt++;
+            if (opt >= argc)
+            {
+                print_usage();
+                return 0;
+            }
+            port_api = argv[opt];
             break;
         case '4':
             data.addressFamily = AF_INET;
@@ -1211,7 +1223,7 @@ int main(int argc, char *argv[])
     fprintf(stdout, "> "); fflush(stdout);
 
 
-    api = create_api();
+    api = create_api(port_api);
 
     if (api->sock < 0)
     {

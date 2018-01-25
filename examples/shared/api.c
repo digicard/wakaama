@@ -45,14 +45,14 @@
  * Llamar tantas veces como instancias de host API se necesite
  * Default llama 1 vez desde lwm2mserver.c
  */
-api_handler * create_api(){
+api_handler * create_api(const char * port){
 
 	api_handler * _api;
 	
 	_api = (api_handler *)malloc(sizeof(api_handler));
 
 	int addressFamily = AF_INET;
-	const char * localPort = "5694";
+	const char * localPort = port;
 
 	_api->sock = create_socket(localPort, addressFamily, SOCK_STREAM);
 	_api->operation = NULL;

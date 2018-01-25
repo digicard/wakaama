@@ -826,7 +826,7 @@ int main(int argc, char *argv[])
     int addressFamily = AF_INET6;
     int opt;
     const char * localPort = LWM2M_STANDARD_PORT_STR;
-
+    const char * port_api = "5694";
 
     command_desc_t commands[] =
     {
@@ -912,6 +912,15 @@ int main(int argc, char *argv[])
             }
             localPort = argv[opt];
             break;
+        case 'a':
+            opt++;
+            if (opt >= argc)
+            {
+                print_usage();
+                return 0;
+            }
+            port_api = argv[opt];
+            break;
         default:
             print_usage();
             return 0;
@@ -935,7 +944,7 @@ int main(int argc, char *argv[])
 
     signal(SIGINT, handle_sigint);
 
-    api = create_api();
+    api = create_api(port_api);
 
     if (api->sock < 0)
     {
