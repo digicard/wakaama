@@ -162,7 +162,7 @@ static endpoint_t * prv_endpoint_new(internal_data_t * dataP,
         prv_endpoint_free(endP);
     }
 
-    endP = (endpoint_t *)malloc(sizeof(endpoint_t));
+    endP = (endpoint_t *)lwm2m_malloc(sizeof(endpoint_t));
     return endP;
 }
 

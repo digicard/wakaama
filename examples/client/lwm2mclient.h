@@ -29,6 +29,7 @@
 
 #include "liblwm2m.h"
 #include <cjson/cJSON.h>
+#include "api.h"
 
 extern int g_reboot;
 
@@ -90,17 +91,10 @@ bool  acc_ctrl_obj_add_inst (lwm2m_object_t* accCtrlObjP, uint16_t instId,
                  uint16_t acObjectId, uint16_t acObjInstId, uint16_t acOwner);
 bool  acc_ctrl_oi_add_ac_val(lwm2m_object_t* accCtrlObjP, uint16_t instId,
                  uint16_t aclResId, uint16_t acValue);
-
-/*
-* object_DSDinamic.c
-*/
-lwm2m_object_t * get_DSDinamic(cJSON * OBJ);
-void display_DSDinamic(lwm2m_object_t * object);
-
 /*
  * lwm2mclient.c
  */
-void handle_value_changed(lwm2m_context_t* lwm2mH, lwm2m_uri_t* uri, const char * value, size_t valueLength);
+void handle_value_changed(lwm2m_context_t* lwm2mH, lwm2m_uri_t* uri, const char * value, size_t valueLength,api_handler_t * api);
 /*
  * system_api.c
  */
@@ -116,5 +110,10 @@ char * get_server_uri(lwm2m_object_t * objectP, uint16_t secObjInstID);
 void display_security_object(lwm2m_object_t * objectP);
 void copy_security_object(lwm2m_object_t * objectDest, lwm2m_object_t * objectSrc);
 
-#endif /* LWM2MCLIENT_H_ */
+/*
+ * object_DSDinamic.c
+ */
+lwm2m_object_t * get_DSDinamic(cJSON * OBJ);
+void display_DSDinamic(lwm2m_object_t * object);
 
+#endif /* LWM2MCLIENT_H_ */

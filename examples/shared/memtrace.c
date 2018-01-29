@@ -84,7 +84,7 @@ char* lwm2m_trace_strdup(const char* str, const char* file, const char* function
 void* lwm2m_trace_malloc(size_t size, const char* file, const char* function, int lineno)
 {
     static int counter = 0;
-    memory_entry_t* entry = malloc(size + sizeof(memory_entry_t));
+    memory_entry_t* entry = lwm2m_malloc(size + sizeof(memory_entry_t));
     entry->next = prv_memory_malloc_list.next;
     prv_memory_malloc_list.next = entry;
     ++prv_memory_malloc_list.count;

@@ -23,13 +23,19 @@
 
 #ifndef LWM2M_MEMORY_TRACE
 
+//long H=0;
+
 void * lwm2m_malloc(size_t s)
 {
+    //H++;
+    //printf("%ld malloc\n",H);
     return malloc(s);
 }
 
 void lwm2m_free(void * p)
 {
+    //H--;
+    //printf("%ld free\n",H);
     return free(p);
 }
 

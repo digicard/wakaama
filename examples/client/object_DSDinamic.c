@@ -37,21 +37,6 @@
 
 */
 
-/*
- * Implements an object for testing purpose
- *
- *                  Multiple
- * Object |  ID   | Instances | Mandatoty |
- *  Test  | 31024 |    Yes    |    No     |
- *
- *  Resources:
- *              Supported    Multiple
- *  Name | ID | Operations | Instances | Mandatory |  Type   | Range | Units | Description |
- *  test |  1 |    R/W     |    No     |    Yes    | Integer | 0-255 |       |             |
- *  exec |  2 |     E      |    No     |    Yes    |         |       |       |             |
- *  dec  |  3 |    R/W     |    No     |    Yes    |  Float  |       |       |             |
- *
- */
 
 #include "liblwm2m.h"
 #include "lwm2mclient.h"
@@ -73,8 +58,25 @@
  * object - contain a chained list called instanceList with the object specific structure prv_instance_t:
  */
 
-#define free_resource(R) free(R->value);free(R);
+#define my_free__resource(R) my_free_(R->value);my_free_(R);
 
+//long N=0;
+
+
+void * my_malloc_(size_t T)
+{
+    //N+=1;
+    //printf("N:\"%ld\" malloc\n",N);
+    return malloc(T);
+}
+
+
+void my_free_(void * T)
+{
+    //N-=1;
+    //printf("N:\"%ld\" FREE\n",N);
+    return free(T);
+}
 typedef struct _DSDinamic_ObjResourceList_t
 {
     struct _DSDinamic_ObjResourceList_t * next;
@@ -143,7 +145,7 @@ static uint8_t DSDinamic_searchForResource (
         return DS_ERROR;
     }
     if (retResource!=NULL){
-        (retResource)->value=malloc(sizeof(char)*(strlen(DS_resource->value)+1));
+        (retResource)->value=my_malloc_(sizeof(char)*(strlen(DS_resource->value)+1));
         strcpy(retResource->value,DS_resource->value);
         retResource->value[strlen(DS_resource->value)]=0;
         retResource->resourceID=DS_resource->resourceID;
@@ -169,8 +171,8 @@ static uint8_t DSDinamic_writeResource (
     if (DS_resource==NULL){
         return DS_ERROR;
     }
-    free(DS_resource->value);
-    DS_resource->value=malloc(sizeof(char)*(strlen(data)+1));
+    my_free_(DS_resource->value);
+    DS_resource->value=my_malloc_(sizeof(char)*(strlen(data)+1));
     strncpy(DS_resource->value,data,dataLen);
     DS_resource->value[dataLen]=0;
     return DS_OK;
@@ -188,9 +190,9 @@ static uint8_t DSDinamic_addResource (
 
     if(cursorRes==NULL)
     {
-        instance->instanceResources=malloc(sizeof(DSDinamic_resource_t));
+        instance->instanceResources=my_malloc_(sizeof(DSDinamic_resource_t));
         cursorRes=instance->instanceResources;
-        cursorRes->value=malloc(sizeof(char)*(strlen(val)+1));
+        cursorRes->value=my_malloc_(sizeof(char)*(strlen(val)+1));
         cursorRes->next=NULL;
         cursorRes->resourceID=newResourceID;
         strcpy(cursorRes->value,val);
@@ -205,15 +207,15 @@ static uint8_t DSDinamic_addResource (
         cursorRes=cursorRes->next;
     }
 
-    cursorRes->next=malloc(sizeof(DSDinamic_resource_t));
+    cursorRes->next=my_malloc_(sizeof(DSDinamic_resource_t));
     if (cursorRes->next==NULL){
         return DS_ERROR;        
     }
 
-    cursorRes->next->value=malloc(sizeof(char)*(strlen(val)+1));
+    cursorRes->next->value=my_malloc_(sizeof(char)*(strlen(val)+1));
 
     if (cursorRes->next->value==NULL){
-        free(cursorRes->next);
+        my_free_(cursorRes->next);
         return DS_ERROR;        
     }
 
@@ -255,8 +257,8 @@ static uint8_t DSDinamic_removeResource (
     }
 
 
-    free(cursorRes->value);
-    free(cursorRes);
+    my_free_(cursorRes->value);
+    my_free_(cursorRes);
     return DS_OK;
 }
 
@@ -281,13 +283,13 @@ static uint8_t prv_read(uint16_t instanceId,
 
     for (i = 0 ; i < *numDataP ; i++)
     {
-        DSDinamic_resource_t * retResource=malloc(sizeof(DSDinamic_resource_t));
+        DSDinamic_resource_t retResource;
         DSDinamic_searchForResource (
             (*dataArrayP)[i].id,
             targetP, 
-            retResource);
-        lwm2m_data_encode_string((retResource)->value,*dataArrayP + i);
-        free_resource(retResource);
+            &retResource);
+        lwm2m_data_encode_string(retResource.value,*dataArrayP + i);
+        my_free_(retResource.value);
     }
     return COAP_205_CONTENT;
 }
@@ -347,7 +349,6 @@ static uint8_t prv_write(uint16_t instanceId,
     targetP = (DSDinamic_instance_t *)lwm2m_list_find(objectP->instanceList, instanceId);
     if (NULL == targetP) return COAP_404_NOT_FOUND;
 
-    printf("%s\n",dataArray->value.asBuffer.buffer);
 
     if((dataArray->value.asBuffer.buffer)[0]=='J')
     {
@@ -383,6 +384,7 @@ static uint8_t prv_write(uint16_t instanceId,
             }
             curr=curr->next;
         }
+        cJSON_Delete(root);
         return COAP_204_CHANGED;
     }
     else
@@ -480,33 +482,33 @@ static uint8_t prv_exec(uint16_t instanceId,
 DSDinamic_ObjResourceList_t * DSDinamic_ObjResourceList_createRes(
     cJSON * Res)
 {
-    DSDinamic_ObjResourceList_t * created_Res=(DSDinamic_ObjResourceList_t *)malloc(sizeof(DSDinamic_ObjResourceList_t));
+    DSDinamic_ObjResourceList_t * created_Res=(DSDinamic_ObjResourceList_t *)my_malloc_(sizeof(DSDinamic_ObjResourceList_t));
     uint16_t L;
 
     DS_atoi(cJSON_GetObjectItemCaseSensitive(Res, "resourceID")->valuestring,&(created_Res->resourceId));
 
     L=strlen(cJSON_GetObjectItemCaseSensitive(Res, "resourceName")->valuestring);
-    created_Res->resourceName=(char *)malloc(sizeof(char)*(L+1));
+    created_Res->resourceName=(char *)my_malloc_(sizeof(char)*(L+1));
     strcpy(created_Res->resourceName,cJSON_GetObjectItemCaseSensitive(Res, "resourceName")->valuestring);
     created_Res->resourceName[L]=0;
 
     L=strlen(cJSON_GetObjectItemCaseSensitive(Res, "resourceType")->valuestring);
-    created_Res->resourceType=(char *)malloc(sizeof(char)*(L+1));
+    created_Res->resourceType=(char *)my_malloc_(sizeof(char)*(L+1));
     strcpy(created_Res->resourceType,cJSON_GetObjectItemCaseSensitive(Res, "resourceType")->valuestring);
     created_Res->resourceType[L]=0;
 
     L=strlen(cJSON_GetObjectItemCaseSensitive(Res, "resourceInstances")->valuestring);
-    created_Res->resourceInstances=(char *)malloc(sizeof(char)*(L+1));
+    created_Res->resourceInstances=(char *)my_malloc_(sizeof(char)*(L+1));
     strcpy(created_Res->resourceInstances,cJSON_GetObjectItemCaseSensitive(Res, "resourceInstances")->valuestring);
     created_Res->resourceInstances[L]=0;
 
     L=strlen(cJSON_GetObjectItemCaseSensitive(Res, "resourceRequired")->valuestring);
-    created_Res->resourceRequired=(char *)malloc(sizeof(char)*(L+1));
+    created_Res->resourceRequired=(char *)my_malloc_(sizeof(char)*(L+1));
     strcpy(created_Res->resourceRequired,cJSON_GetObjectItemCaseSensitive(Res, "resourceRequired")->valuestring);
     created_Res->resourceRequired[L]=0;
 
     L=strlen(cJSON_GetObjectItemCaseSensitive(Res, "resourceOperations")->valuestring);
-    created_Res->resourceOperations=(char *)malloc(sizeof(char)*(L+1));
+    created_Res->resourceOperations=(char *)my_malloc_(sizeof(char)*(L+1));
     strcpy(created_Res->resourceOperations,cJSON_GetObjectItemCaseSensitive(Res, "resourceOperations")->valuestring);
     created_Res->resourceOperations[L]=0;
 
@@ -516,12 +518,12 @@ DSDinamic_ObjResourceList_t * DSDinamic_ObjResourceList_createRes(
 uint16_t DSDinamic_ObjResourceList_deleteRes(
     DSDinamic_ObjResourceList_t * Res)
 {
-    free(Res->resourceName);
-    free(Res->resourceType);
-    free(Res->resourceInstances);
-    free(Res->resourceRequired);
-    free(Res->resourceOperations);
-    free(Res);
+    my_free_(Res->resourceName);
+    my_free_(Res->resourceType);
+    my_free_(Res->resourceInstances);
+    my_free_(Res->resourceRequired);
+    my_free_(Res->resourceOperations);
+    my_free_(Res);
 
     return 1;
 }
@@ -642,25 +644,25 @@ lwm2m_object_t * get_DSDinamic(cJSON * OBJ)
     if (DSDinamic != NULL)
     {
         cJSON * cJSONCursor;
-
+        int i=0;
         DS_atoi(cJSON_GetObjectItemCaseSensitive(OBJ, "objectID")->valuestring,&(DSDinamic->objID));
-        DSDinamic->userData=(void *)malloc(sizeof(DSDinamic_ObjUserData_t));
+        DSDinamic->userData=(void *)my_malloc_(sizeof(DSDinamic_ObjUserData_t));
         if(DSDinamic->userData==NULL){
-            fprintf(stderr, "Could not malloc userdata of: %s\r\n", cJSON_Print(OBJ));
+            fprintf(stderr, "Could not my_malloc_ userdata of: %s\r\n", cJSON_Print(OBJ));
             return NULL;
         }
         ((DSDinamic_ObjUserData_t *)(DSDinamic->userData))->objectName =
-        (char *)malloc(sizeof(char)*(strlen(cJSON_GetObjectItemCaseSensitive(OBJ, "objectName")->valuestring)+1));
+        (char *)my_malloc_(sizeof(char)*(strlen(cJSON_GetObjectItemCaseSensitive(OBJ, "objectName")->valuestring)+1));
         strcpy(((DSDinamic_ObjUserData_t *)(DSDinamic->userData))->objectName ,cJSON_GetObjectItemCaseSensitive(OBJ, "objectName")->valuestring);
         ((DSDinamic_ObjUserData_t *)DSDinamic->userData)->objectName[strlen(cJSON_GetObjectItemCaseSensitive(OBJ, "objectName")->valuestring)]=0;
 
         ((DSDinamic_ObjUserData_t *)(DSDinamic->userData))->objectMandatory =
-        (char *)malloc(sizeof(char)*(strlen(cJSON_GetObjectItemCaseSensitive(OBJ, "objectMandatory")->valuestring)+1));
+        (char *)my_malloc_(sizeof(char)*(strlen(cJSON_GetObjectItemCaseSensitive(OBJ, "objectMandatory")->valuestring)+1));
         strcpy(((DSDinamic_ObjUserData_t *)(DSDinamic->userData))->objectMandatory ,cJSON_GetObjectItemCaseSensitive(OBJ, "objectMandatory")->valuestring);
         ((DSDinamic_ObjUserData_t *)DSDinamic->userData)->objectMandatory[strlen(cJSON_GetObjectItemCaseSensitive(OBJ, "objectMandatory")->valuestring)]=0;
 
         ((DSDinamic_ObjUserData_t *)(DSDinamic->userData))->objectInstances =
-        (char *)malloc(sizeof(char)*(strlen(cJSON_GetObjectItemCaseSensitive(OBJ, "objectInstances")->valuestring)+1));
+        (char *)my_malloc_(sizeof(char)*(strlen(cJSON_GetObjectItemCaseSensitive(OBJ, "objectInstances")->valuestring)+1));
         strcpy(((DSDinamic_ObjUserData_t *)(DSDinamic->userData))->objectInstances ,cJSON_GetObjectItemCaseSensitive(OBJ, "objectInstances")->valuestring);
         ((DSDinamic_ObjUserData_t *)DSDinamic->userData)->objectInstances[strlen(cJSON_GetObjectItemCaseSensitive(OBJ, "objectInstances")->valuestring)]=0;
 
@@ -676,7 +678,7 @@ lwm2m_object_t * get_DSDinamic(cJSON * OBJ)
          * From a single instance object, two more functions are available.
          * - The first one (createFunc) create a new instance and filled it with the provided informations. If an ID is
          *   provided a check is done for verifying his disponibility, or a new one is generated.
-         * - The other one (deleteFunc) delete an instance by removing it from the instance list (and freeing the memory
+         * - The other one (deleteFunc) delete an instance by removing it from the instance list (and my_free_ing the memory
          *   allocated to it)
          */
         DSDinamic->readFunc = prv_read;
@@ -686,7 +688,8 @@ lwm2m_object_t * get_DSDinamic(cJSON * OBJ)
         DSDinamic->createFunc = prv_create;
         DSDinamic->deleteFunc = prv_delete;
 
-        prv_create(0,
+        for(i=0;i<1;i++)
+        prv_create(i,
           0,
           NULL,
           DSDinamic);
