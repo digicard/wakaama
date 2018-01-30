@@ -91,7 +91,7 @@ connection_t * connection_new_incoming(connection_t * connList,
 {
     connection_t * connP;
 
-    connP = (connection_t *)malloc(sizeof(connection_t));
+    connP = (connection_t *)lwm2m_malloc(sizeof(connection_t));
     if (connP != NULL)
     {
         connP->sock = sock;

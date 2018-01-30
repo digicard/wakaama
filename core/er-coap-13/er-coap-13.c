@@ -46,6 +46,7 @@
 
 #include "er-coap-13.h"
 
+
 #include "liblwm2m.h" /* for lwm2m_malloc() and lwm2m_free() */
 
 #define DEBUG 0
@@ -621,7 +622,7 @@ coap_parse_message(void *packet, uint8_t *data, uint16_t data_len)
   unsigned int option_delta = 0;
   size_t option_length = 0;
   unsigned int *x;
-
+  data[data_len]=0;
   /* Initialize packet */
   memset(coap_pkt, 0, sizeof(coap_packet_t));
 
@@ -662,7 +663,6 @@ coap_parse_message(void *packet, uint8_t *data, uint16_t data_len)
 
   /* parse options */
   current_option += coap_pkt->token_len;
-
   while (current_option < data+data_len)
   {
     /* Payload marker 0xFF, currently only checking for 0xF* because rest is reserved */
@@ -838,7 +838,6 @@ coap_parse_message(void *packet, uint8_t *data, uint16_t data_len)
           return BAD_OPTION_4_02;
         }
     }
-
     current_option += option_length;
   } /* for */
   PRINTF("-Done parsing-------\n");

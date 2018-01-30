@@ -461,14 +461,14 @@ void lwm2m_resource_value_changed(lwm2m_context_t * contextP,
                 {
                     lwm2m_watcher_t * watcherP;
 
-                    LOG("Found an observation");
+                    printf("Found an observation\n");
                     LOG_URI(&(targetP->uri));
 
                     for (watcherP = targetP->watcherList ; watcherP != NULL ; watcherP = watcherP->next)
                     {
                         if (watcherP->active == true)
                         {
-                            LOG("Tagging a watcher");
+                            printf("Tagging a watcher\n");
                             watcherP->update = true;
                         }
                     }

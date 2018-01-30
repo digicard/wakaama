@@ -79,10 +79,12 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <signal.h>
+#include <stdbool.h>
+#include <cjson/cJSON.h>
+#include <fcntl.h>
 
 #include "api.h"
-
-api_handler * api = NULL;
+#include "../../core/internals.h"
 
 #define MAX_PACKET_SIZE 1024
 #define DEFAULT_SERVER_IPV6 "[::1]"
@@ -91,12 +93,17 @@ api_handler * api = NULL;
 int g_reboot = 0;
 static int g_quit = 0;
 
-#define OBJ_COUNT 9
-lwm2m_object_t * objArray[OBJ_COUNT];
+#define OBJ_COUNT_ 9
+uint16_t OBJ_COUNT=OBJ_COUNT_;
 
 // only backup security and server objects
 # define BACKUP_OBJECT_COUNT 2
 lwm2m_object_t * backupObjectArray[BACKUP_OBJECT_COUNT];
+
+void API_command_change (api_handler_t * api,api_operation_t * apioper,void * userData);
+void API_command_subscribe (api_handler_t * api,api_operation_t * apioper,void * userData);
+void API_command_get (api_handler_t * api,api_operation_t * apioper,void * userData);
+
 
 typedef struct
 {
@@ -113,7 +120,7 @@ typedef struct
 } client_data_t;
 
 static void prv_quit(char * buffer,
-                     void * user_data)
+ void * user_data)
 {
     g_quit = 1;
 }
@@ -124,9 +131,10 @@ void handle_sigint(int signum)
 }
 
 void handle_value_changed(lwm2m_context_t * lwm2mH,
-                          lwm2m_uri_t * uri,
-                          const char * value,
-                          size_t valueLength)
+  lwm2m_uri_t * uri,
+  const char * value,
+  size_t valueLength,
+  api_handler_t * api)
 {
     lwm2m_object_t * object = (lwm2m_object_t *)LWM2M_LIST_FIND(lwm2mH->objectList, uri->objectId);
 
@@ -151,10 +159,10 @@ void handle_value_changed(lwm2m_context_t * lwm2mH,
             {
                 switch (uri->objectId)
                 {
-                case LWM2M_DEVICE_OBJECT_ID:
+                    case LWM2M_DEVICE_OBJECT_ID:
                     result = device_change(dataP, object);
                     break;
-                default:
+                    default:
                     break;
                 }
             }
@@ -166,6 +174,11 @@ void handle_value_changed(lwm2m_context_t * lwm2mH,
             else
             {
                 fprintf(stderr, "value changed!\n");
+                if (api!=NULL)
+                    API_send_subscribe_change(api,
+                        uri,
+                        value,
+                        valueLength);
                 lwm2m_resource_value_changed(lwm2mH, uri);
             }
             lwm2m_data_free(1, dataP);
@@ -185,7 +198,7 @@ void handle_value_changed(lwm2m_context_t * lwm2mH,
 
 #ifdef WITH_TINYDTLS
 void * lwm2m_connect_server(uint16_t secObjInstID,
-                            void * userData)
+    void * userData)
 {
   client_data_t * dataP;
   lwm2m_list_t * instance;
@@ -209,7 +222,7 @@ void * lwm2m_connect_server(uint16_t secObjInstID,
 }
 #else
 void * lwm2m_connect_server(uint16_t secObjInstID,
-                            void * userData)
+    void * userData)
 {
     client_data_t * dataP;
     char * uri;
@@ -258,14 +271,14 @@ void * lwm2m_connect_server(uint16_t secObjInstID,
         dataP->connList = newConnP;
     }
 
-exit:
+    exit:
     lwm2m_free(uri);
     return (void *)newConnP;
 }
 #endif
 
 void lwm2m_close_connection(void * sessionH,
-                            void * userData)
+    void * userData)
 {
     client_data_t * app_data;
 #ifdef WITH_TINYDTLS
@@ -308,7 +321,7 @@ void lwm2m_close_connection(void * sessionH,
 }
 
 static void prv_output_servers(char * buffer,
-                               void * user_data)
+   void * user_data)
 {
     lwm2m_context_t * lwm2mH = (lwm2m_context_t *) user_data;
     lwm2m_server_t * targetP;
@@ -329,25 +342,25 @@ static void prv_output_servers(char * buffer,
             fprintf(stdout, "\tstatus: ");
             switch(targetP->status)
             {
-            case STATE_DEREGISTERED:
+                case STATE_DEREGISTERED:
                 fprintf(stdout, "DEREGISTERED\r\n");
                 break;
-            case STATE_BS_HOLD_OFF:
+                case STATE_BS_HOLD_OFF:
                 fprintf(stdout, "CLIENT HOLD OFF\r\n");
                 break;
-            case STATE_BS_INITIATED:
+                case STATE_BS_INITIATED:
                 fprintf(stdout, "BOOTSTRAP INITIATED\r\n");
                 break;
-            case STATE_BS_PENDING:
+                case STATE_BS_PENDING:
                 fprintf(stdout, "BOOTSTRAP PENDING\r\n");
                 break;
-            case STATE_BS_FINISHED:
+                case STATE_BS_FINISHED:
                 fprintf(stdout, "BOOTSTRAP FINISHED\r\n");
                 break;
-            case STATE_BS_FAILED:
+                case STATE_BS_FAILED:
                 fprintf(stdout, "BOOTSTRAP FAILED\r\n");
                 break;
-            default:
+                default:
                 fprintf(stdout, "INVALID (%d)\r\n", (int)targetP->status);
             }
         }
@@ -366,25 +379,25 @@ static void prv_output_servers(char * buffer,
             fprintf(stdout, "\tstatus: ");
             switch(targetP->status)
             {
-            case STATE_DEREGISTERED:
+                case STATE_DEREGISTERED:
                 fprintf(stdout, "DEREGISTERED\r\n");
                 break;
-            case STATE_REG_PENDING:
+                case STATE_REG_PENDING:
                 fprintf(stdout, "REGISTRATION PENDING\r\n");
                 break;
-            case STATE_REGISTERED:
+                case STATE_REGISTERED:
                 fprintf(stdout, "REGISTERED\tlocation: \"%s\"\tLifetime: %lus\r\n", targetP->location, (unsigned long)targetP->lifetime);
                 break;
-            case STATE_REG_UPDATE_PENDING:
+                case STATE_REG_UPDATE_PENDING:
                 fprintf(stdout, "REGISTRATION UPDATE PENDING\r\n");
                 break;
-            case STATE_DEREG_PENDING:
+                case STATE_DEREG_PENDING:
                 fprintf(stdout, "DEREGISTRATION PENDING\r\n");
                 break;
-            case STATE_REG_FAILED:
+                case STATE_REG_FAILED:
                 fprintf(stdout, "REGISTRATION FAILED\r\n");
                 break;
-            default:
+                default:
                 fprintf(stdout, "INVALID (%d)\r\n", (int)targetP->status);
             }
         }
@@ -392,7 +405,7 @@ static void prv_output_servers(char * buffer,
 }
 
 static void prv_change(char * buffer,
-                       void * user_data)
+   void * user_data)
 {
     lwm2m_context_t * lwm2mH = (lwm2m_context_t *) user_data;
     lwm2m_uri_t uri;
@@ -414,16 +427,16 @@ static void prv_change(char * buffer,
     }
     else
     {
-        handle_value_changed(lwm2mH, &uri, buffer, end - buffer);
+        handle_value_changed(lwm2mH, &uri, buffer, end - buffer,NULL);
     }
     return;
 
-syntax_error:
+    syntax_error:
     fprintf(stdout, "Syntax error !\n");
 }
 
 static void prv_object_list(char * buffer,
-                            void * user_data)
+    void * user_data)
 {
     lwm2m_context_t * lwm2mH = (lwm2m_context_t *)user_data;
     lwm2m_object_t * objectP;
@@ -448,7 +461,7 @@ static void prv_object_list(char * buffer,
 }
 
 static void prv_instance_dump(lwm2m_object_t * objectP,
-                              uint16_t id)
+  uint16_t id)
 {
     int numData;
     lwm2m_data_t * dataArray;
@@ -469,7 +482,7 @@ static void prv_instance_dump(lwm2m_object_t * objectP,
 
 
 static void prv_object_dump(char * buffer,
-                            void * user_data)
+    void * user_data)
 {
     lwm2m_context_t * lwm2mH = (lwm2m_context_t *) user_data;
     lwm2m_uri_t uri;
@@ -509,12 +522,12 @@ static void prv_object_dump(char * buffer,
 
     return;
 
-syntax_error:
+    syntax_error:
     fprintf(stdout, "Syntax error !\n");
 }
 
 static void prv_update(char * buffer,
-                       void * user_data)
+   void * user_data)
 {
     lwm2m_context_t * lwm2mH = (lwm2m_context_t *)user_data;
     if (buffer[0] == 0) goto syntax_error;
@@ -529,7 +542,7 @@ static void prv_update(char * buffer,
     }
     return;
 
-syntax_error:
+    syntax_error:
     fprintf(stdout, "Syntax error !\n");
 }
 
@@ -553,7 +566,7 @@ static void update_battery_level(lwm2m_context_t * context)
         {
             valueLength = sprintf(value, "%d", level);
             fprintf(stderr, "New Battery Level: %d\n", level);
-            handle_value_changed(context, &uri, value, valueLength);
+            handle_value_changed(context, &uri, value, valueLength,NULL);
         }
         level = rand() % 20;
         if (0 > level) level = -level;
@@ -562,7 +575,7 @@ static void update_battery_level(lwm2m_context_t * context)
 }
 
 static void prv_add(char * buffer,
-                    void * user_data)
+    void * user_data)
 {
     lwm2m_context_t * lwm2mH = (lwm2m_context_t *)user_data;
     lwm2m_object_t * objectP;
@@ -589,7 +602,7 @@ static void prv_add(char * buffer,
 }
 
 static void prv_remove(char * buffer,
-                       void * user_data)
+   void * user_data)
 {
     lwm2m_context_t * lwm2mH = (lwm2m_context_t *)user_data;
     int res;
@@ -611,7 +624,7 @@ static void prv_remove(char * buffer,
 #ifdef LWM2M_BOOTSTRAP
 
 static void prv_initiate_bootstrap(char * buffer,
-                                   void * user_data)
+   void * user_data)
 {
     lwm2m_context_t * lwm2mH = (lwm2m_context_t *)user_data;
     lwm2m_server_t * targetP;
@@ -627,7 +640,7 @@ static void prv_initiate_bootstrap(char * buffer,
 }
 
 static void prv_display_objects(char * buffer,
-                                void * user_data)
+    void * user_data)
 {
     lwm2m_context_t * lwm2mH = (lwm2m_context_t *)user_data;
     lwm2m_object_t * object;
@@ -636,29 +649,32 @@ static void prv_display_objects(char * buffer,
         if (NULL != object) {
             switch (object->objID)
             {
-            case LWM2M_SECURITY_OBJECT_ID:
+                case LWM2M_SECURITY_OBJECT_ID:
                 display_security_object(object);
                 break;
-            case LWM2M_SERVER_OBJECT_ID:
+                case LWM2M_SERVER_OBJECT_ID:
                 display_server_object(object);
                 break;
-            case LWM2M_ACL_OBJECT_ID:
+                case LWM2M_ACL_OBJECT_ID:
                 break;
-            case LWM2M_DEVICE_OBJECT_ID:
+                case LWM2M_DEVICE_OBJECT_ID:
                 display_device_object(object);
                 break;
-            case LWM2M_CONN_MONITOR_OBJECT_ID:
+                case LWM2M_CONN_MONITOR_OBJECT_ID:
                 break;
-            case LWM2M_FIRMWARE_UPDATE_OBJECT_ID:
+                case LWM2M_FIRMWARE_UPDATE_OBJECT_ID:
                 display_firmware_object(object);
                 break;
-            case LWM2M_LOCATION_OBJECT_ID:
+                case LWM2M_LOCATION_OBJECT_ID:
                 display_location_object(object);
                 break;
-            case LWM2M_CONN_STATS_OBJECT_ID:
+                case LWM2M_CONN_STATS_OBJECT_ID:
                 break;
-            case TEST_OBJECT_ID:
+                case TEST_OBJECT_ID:
                 display_test_object(object);
+                break;
+                default:
+                display_DSDinamic(object);
                 break;
             }
         }
@@ -666,7 +682,7 @@ static void prv_display_objects(char * buffer,
 }
 
 static void prv_display_backup(char * buffer,
-        void * user_data)
+    void * user_data)
 {
    int i;
    for (i = 0 ; i < BACKUP_OBJECT_COUNT ; i++) {
@@ -674,13 +690,13 @@ static void prv_display_backup(char * buffer,
        if (NULL != object) {
            switch (object->objID)
            {
-           case LWM2M_SECURITY_OBJECT_ID:
+               case LWM2M_SECURITY_OBJECT_ID:
                display_security_object(object);
                break;
-           case LWM2M_SERVER_OBJECT_ID:
+               case LWM2M_SERVER_OBJECT_ID:
                display_server_object(object);
                break;
-           default:
+               default:
                break;
            }
        }
@@ -695,15 +711,15 @@ static void prv_backup_objects(lwm2m_context_t * context)
         if (NULL != backupObjectArray[i]) {
             switch (backupObjectArray[i]->objID)
             {
-            case LWM2M_SECURITY_OBJECT_ID:
+                case LWM2M_SECURITY_OBJECT_ID:
                 clean_security_object(backupObjectArray[i]);
                 lwm2m_free(backupObjectArray[i]);
                 break;
-            case LWM2M_SERVER_OBJECT_ID:
+                case LWM2M_SERVER_OBJECT_ID:
                 clean_server_object(backupObjectArray[i]);
                 lwm2m_free(backupObjectArray[i]);
                 break;
-            default:
+                default:
                 break;
             }
         }
@@ -742,7 +758,7 @@ static void prv_restore_objects(lwm2m_context_t * context)
 }
 
 static void update_bootstrap_info(lwm2m_client_state_t * previousBootstrapState,
-        lwm2m_context_t * context)
+    lwm2m_context_t * context)
 {
     if (*previousBootstrapState != context->state)
     {
@@ -751,12 +767,12 @@ static void update_bootstrap_info(lwm2m_client_state_t * previousBootstrapState,
         {
             case STATE_BOOTSTRAPPING:
 #ifdef WITH_LOGS
-                fprintf(stdout, "[BOOTSTRAP] backup security and server objects\r\n");
+            fprintf(stdout, "[BOOTSTRAP] backup security and server objects\r\n");
 #endif
-                prv_backup_objects(context);
-                break;
+            prv_backup_objects(context);
+            break;
             default:
-                break;
+            break;
         }
     }
 }
@@ -768,15 +784,15 @@ static void close_backup_object()
         if (NULL != backupObjectArray[i]) {
             switch (backupObjectArray[i]->objID)
             {
-            case LWM2M_SECURITY_OBJECT_ID:
+                case LWM2M_SECURITY_OBJECT_ID:
                 clean_security_object(backupObjectArray[i]);
                 lwm2m_free(backupObjectArray[i]);
                 break;
-            case LWM2M_SERVER_OBJECT_ID:
+                case LWM2M_SERVER_OBJECT_ID:
                 clean_server_object(backupObjectArray[i]);
                 lwm2m_free(backupObjectArray[i]);
                 break;
-            default:
+                default:
                 break;
             }
         }
@@ -814,12 +830,18 @@ int main(int argc, char *argv[])
     const char * server = NULL;
     const char * serverPort = LWM2M_STANDARD_PORT_STR;
     char * name = "testlwm2mclient";
-    int lifetime = 300;
+    int lifetime = 10;
     int batterylevelchanging = 0;
     time_t reboot_time = 0;
     int opt;
     bool bootstrapRequested = false;
     bool serverPortChanged = false;
+    lwm2m_client_state_t ant_state; 
+    lwm2m_object_t * * objArray=(lwm2m_object_t **)lwm2m_malloc(sizeof(lwm2m_object_t *)*OBJ_COUNT_);
+    char *port;
+    port=lwm2m_malloc(sizeof(char)*5);
+    port[4]=0;
+    strncpy(port,"5693",4);
 
 #ifdef LWM2M_BOOTSTRAP
     lwm2m_client_state_t previousState = STATE_INITIAL;
@@ -839,27 +861,34 @@ int main(int argc, char *argv[])
      */
     command_desc_t commands[] =
     {
-            {"list", "List known servers.", NULL, prv_output_servers, NULL},
-            {"change", "Change the value of resource.", " change URI [DATA]\r\n"
-                                                        "   URI: uri of the resource such as /3/0, /3/0/2\r\n"
-                                                        "   DATA: (optional) new value\r\n", prv_change, NULL},
-            {"update", "Trigger a registration update", " update SERVER\r\n"
-                                                        "   SERVER: short server id such as 123\r\n", prv_update, NULL},
+        {"list", "List known servers.", NULL, prv_output_servers, NULL},
+        {"change", "Change the value of resource.", " change URI [DATA]\r\n"
+        "   URI: uri of the resource such as /3/0, /3/0/2\r\n"
+        "   DATA: (optional) new value\r\n", prv_change, NULL},
+        {"update", "Trigger a registration update", " update SERVER\r\n"
+        "   SERVER: short server id such as 123\r\n", prv_update, NULL},
 #ifdef LWM2M_BOOTSTRAP
-            {"bootstrap", "Initiate a DI bootstrap process", NULL, prv_initiate_bootstrap, NULL},
-            {"dispb", "Display current backup of objects/instances/resources\r\n"
-                    "\t(only security and server objects are backupped)", NULL, prv_display_backup, NULL},
+        {"bootstrap", "Initiate a DI bootstrap process", NULL, prv_initiate_bootstrap, NULL},
+        {"dispb", "Display current backup of objects/instances/resources\r\n"
+        "\t(only security and server objects are backupped)", NULL, prv_display_backup, NULL},
 #endif
-            {"ls", "List Objects and Instances", NULL, prv_object_list, NULL},
-            {"disp", "Display current objects/instances/resources", NULL, prv_display_objects, NULL},
-            {"dump", "Dump an Object", "dump URI"
-                                       "URI: uri of the Object or Instance such as /3/0, /1\r\n", prv_object_dump, NULL},
-            {"add", "Add support of object 31024", NULL, prv_add, NULL},
-            {"rm", "Remove support of object 31024", NULL, prv_remove, NULL},
-            {"quit", "Quit the client gracefully.", NULL, prv_quit, NULL},
-            {"^C", "Quit the client abruptly (without sending a de-register message).", NULL, NULL, NULL},
+        {"ls", "List Objects and Instances", NULL, prv_object_list, NULL},
+        {"disp", "Display current objects/instances/resources", NULL, prv_display_objects, NULL},
+        {"dump", "Dump an Object", "dump URI"
+        "URI: uri of the Object or Instance such as /3/0, /1\r\n", prv_object_dump, NULL},
+        {"add", "Add support of object 31024", NULL, prv_add, NULL},
+        {"rm", "Remove support of object 31024", NULL, prv_remove, NULL},
+        {"quit", "Quit the client gracefully.", NULL, prv_quit, NULL},
+        {"^C", "Quit the client abruptly (without sending a de-register message).", NULL, NULL, NULL},
 
-            COMMAND_END_LIST
+        COMMAND_END_LIST
+    };
+
+    API_command_desc_t API_commands[]={
+        {"change",4,API_command_change,0,NULL},
+        {"subscribe",3,API_command_subscribe,1,NULL},
+        {"get",3,API_command_get,0,NULL},
+        API_COMMAND_END_LIST
     };
 
     memset(&data, 0, sizeof(client_data_t));
@@ -877,14 +906,14 @@ int main(int argc, char *argv[])
         }
         switch (argv[opt][1])
         {
-        case 'b':
+            case 'b':
             bootstrapRequested = true;
             if (!serverPortChanged) serverPort = LWM2M_BSSERVER_PORT_STR;
             break;
-        case 'c':
+            case 'c':
             batterylevelchanging = 1;
             break;
-        case 't':
+            case 't':
             opt++;
             if (opt >= argc)
             {
@@ -898,7 +927,7 @@ int main(int argc, char *argv[])
             }
             break;
 #ifdef WITH_TINYDTLS
-        case 'i':
+            case 'i':
             opt++;
             if (opt >= argc)
             {
@@ -907,7 +936,7 @@ int main(int argc, char *argv[])
             }
             pskId = argv[opt];
             break;
-        case 's':
+            case 's':
             opt++;
             if (opt >= argc)
             {
@@ -917,7 +946,7 @@ int main(int argc, char *argv[])
             psk = argv[opt];
             break;
 #endif
-        case 'n':
+            case 'n':
             opt++;
             if (opt >= argc)
             {
@@ -926,7 +955,7 @@ int main(int argc, char *argv[])
             }
             name = argv[opt];
             break;
-        case 'l':
+            case 'l':
             opt++;
             if (opt >= argc)
             {
@@ -935,7 +964,7 @@ int main(int argc, char *argv[])
             }
             localPort = argv[opt];
             break;
-        case 'h':
+            case 'h':
             opt++;
             if (opt >= argc)
             {
@@ -944,7 +973,7 @@ int main(int argc, char *argv[])
             }
             server = argv[opt];
             break;
-        case 'p':
+            case 'p':
             opt++;
             if (opt >= argc)
             {
@@ -954,10 +983,17 @@ int main(int argc, char *argv[])
             serverPort = argv[opt];
             serverPortChanged = true;
             break;
-        case '4':
+            case '4':
             data.addressFamily = AF_INET;
             break;
-        default:
+            case 'a':
+            opt++;
+            free(port);
+            port=malloc((1+strlen(argv[opt]))*sizeof(char));
+            strncpy(port,argv[opt],strlen(argv[opt]));
+            port[strlen(argv[opt])]=0;
+            break;
+            default:
             print_usage();
             return 0;
         }
@@ -988,7 +1024,7 @@ int main(int argc, char *argv[])
     if (psk != NULL)
     {
         pskLen = strlen(psk) / 2;
-        pskBuffer = malloc(pskLen);
+        pskBuffer = lwm2m_malloc(pskLen);
 
         if (NULL == pskBuffer)
         {
@@ -1106,6 +1142,71 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Failed to create Access Control ACL resource for serverId: 999\r\n");
         return -1;
     }
+
+
+
+/**********************************************************************/
+    int fd;
+    char * BUFF=(char *)lwm2m_malloc(sizeof(char)*MAX_PACKET_SIZE);
+    char * jsonStr=NULL;
+    uint16_t S_BUFF;
+
+    fd=open("./DS_OBJ.json", O_RDONLY);
+    if (fd<=0){
+        fprintf(stderr, "open() of Json file failed: 0x%X\r\n", fd);
+        return -1;        
+    }
+
+    do{
+
+        S_BUFF=read(fd, BUFF,MAX_PACKET_SIZE+1);
+        if(S_BUFF<0){
+            fprintf(stderr, "read() of Json file failed: %d\r\n", fd);  
+            return -1;              
+        }
+
+        if(S_BUFF>0){
+            if(jsonStr==NULL){
+                jsonStr=(char *)lwm2m_malloc(sizeof(char)*(S_BUFF)+1);
+                jsonStr=strncpy(jsonStr,BUFF,S_BUFF);
+                jsonStr[S_BUFF]=0;
+            }else{
+                char * aux=(char *)lwm2m_malloc(sizeof(char)*(S_BUFF+1+strlen(jsonStr)));
+                aux=strncpy(aux,jsonStr,strlen(jsonStr));
+                aux[strlen(jsonStr)]=0;
+                BUFF[S_BUFF]=0;
+                aux=strcat(aux,BUFF);
+                free(jsonStr);
+                jsonStr=aux;
+            }
+        }
+
+    }while (S_BUFF>0);
+
+    free(BUFF);
+
+    cJSON_InitHooks(NULL);
+
+    cJSON * root = cJSON_Parse(jsonStr);
+
+    OBJ_COUNT+=1;
+    lwm2m_object_t * * objArray_AUX=lwm2m_malloc(sizeof(lwm2m_object_t*)*(OBJ_COUNT));
+
+    memcpy(objArray_AUX,objArray,sizeof(lwm2m_object_t*)*(OBJ_COUNT));
+
+    free(objArray);
+    objArray=objArray_AUX;
+
+    objArray[OBJ_COUNT-1]=get_DSDinamic(root);
+
+    free(jsonStr);
+/**********************************************************************/
+    
+    if(objArray[OBJ_COUNT-1]==0){
+        fprintf(stderr, "Could not create DSDinamic, obj Nº %d\r\n", OBJ_COUNT);  
+        return -1;              
+    }
+
     /*
      * The liblwm2m library is now initialized with the functions that will be in
      * charge of communication
@@ -1151,14 +1252,9 @@ int main(int argc, char *argv[])
     fprintf(stdout, "> "); fflush(stdout);
 
 
-    api = create_api();
 
-    if (api->sock < 0)
-    {
-        fprintf(stderr, "Error opening socket: %d\r\n", errno);
-    }
-
-
+    API_create(0);
+    API_config(0,API_commands,port,lwm2mH);
     /*
      * We now enter in a while loop that will handle the communications from the server
      */
@@ -1193,13 +1289,13 @@ int main(int argc, char *argv[])
         else if (batterylevelchanging)
         {
             update_battery_level(lwm2mH);
-            tv.tv_sec = 5;
+            tv.tv_sec = 0;
         }
         else
         {
-            tv.tv_sec = 60;
+            tv.tv_sec = 0;
         }
-        tv.tv_sec = 1;
+        tv.tv_sec = 0;
         tv.tv_usec = 0;
 
         FD_ZERO(&readfds);
@@ -1213,30 +1309,34 @@ int main(int argc, char *argv[])
          *    (eg. retransmission) and the time between the next operation
          */
         result = lwm2m_step(lwm2mH, &(tv.tv_sec));
-        fprintf(stdout, " -> State: ");
-        switch (lwm2mH->state)
+        if(ant_state!=lwm2mH->state)
         {
-        case STATE_INITIAL:
-            fprintf(stdout, "STATE_INITIAL\r\n");
-            break;
-        case STATE_BOOTSTRAP_REQUIRED:
-            fprintf(stdout, "STATE_BOOTSTRAP_REQUIRED\r\n");
-            break;
-        case STATE_BOOTSTRAPPING:
-            fprintf(stdout, "STATE_BOOTSTRAPPING\r\n");
-            break;
-        case STATE_REGISTER_REQUIRED:
-            fprintf(stdout, "STATE_REGISTER_REQUIRED\r\n");
-            break;
-        case STATE_REGISTERING:
-            fprintf(stdout, "STATE_REGISTERING\r\n");
-            break;
-        case STATE_READY:
-            fprintf(stdout, "STATE_READY\r\n");
-            break;
-        default:
-            fprintf(stdout, "Unknown...\r\n");
-            break;
+            fprintf(stdout, " -> State: ");
+            switch (lwm2mH->state)
+            {
+                case STATE_INITIAL:
+                fprintf(stdout, "STATE_INITIAL\r\n");
+                break;
+                case STATE_BOOTSTRAP_REQUIRED:
+                fprintf(stdout, "STATE_BOOTSTRAP_REQUIRED\r\n");
+                break;
+                case STATE_BOOTSTRAPPING:
+                fprintf(stdout, "STATE_BOOTSTRAPPING\r\n");
+                break;
+                case STATE_REGISTER_REQUIRED:
+                fprintf(stdout, "STATE_REGISTER_REQUIRED\r\n");
+                break;
+                case STATE_REGISTERING:
+                fprintf(stdout, "STATE_REGISTERING\r\n");
+                break;
+                case STATE_READY:
+                fprintf(stdout, "STATE_READY\r\n");
+                break;
+                default:
+                fprintf(stdout, "Unknown...\r\n");
+                break;
+            }
+            ant_state=lwm2mH->state;
         }
         if (result != 0)
         {
@@ -1265,180 +1365,219 @@ int main(int argc, char *argv[])
             if (errno != EINTR)
             {
               fprintf(stderr, "Error in select(): %d %s\r\n", errno, strerror(errno));
-            }
-        }
-        else if (result > 0)
-        {
-            uint8_t buffer[MAX_PACKET_SIZE];
-            int numBytes;
+          }
+      }
+      else if (result > 0)
+      {
+        uint8_t buffer[MAX_PACKET_SIZE];
+        int numBytes;
 
             /*
              * If an event happens on the socket
              */
-            if (FD_ISSET(data.sock, &readfds))
-            {
-                struct sockaddr_storage addr;
-                socklen_t addrLen;
+        if (FD_ISSET(data.sock, &readfds))
+        {
+            struct sockaddr_storage addr;
+            socklen_t addrLen;
 
-                addrLen = sizeof(addr);
+            addrLen = sizeof(addr);
 
                 /*
                  * We retrieve the data received
                  */
-                numBytes = recvfrom(data.sock, buffer, MAX_PACKET_SIZE, 0, (struct sockaddr *)&addr, &addrLen);
+            numBytes = recvfrom(data.sock, buffer, MAX_PACKET_SIZE, 0, (struct sockaddr *)&addr, &addrLen);
 
-                if (0 > numBytes)
-                {
-                    fprintf(stderr, "Error in recvfrom(): %d %s\r\n", errno, strerror(errno));
-                }
-                else if (0 < numBytes)
-                {
-                    char s[INET6_ADDRSTRLEN];
-                    in_port_t port;
+            if (0 > numBytes)
+            {
+                fprintf(stderr, "Error in recvfrom(): %d %s\r\n", errno, strerror(errno));
+            }
+            else if (0 < numBytes)
+            {
+                char s[INET6_ADDRSTRLEN];
+                in_port_t port;
 
 #ifdef WITH_TINYDTLS
-                    dtls_connection_t * connP;
+                dtls_connection_t * connP;
 #else
-                    connection_t * connP;
+                connection_t * connP;
 #endif
-                    if (AF_INET == addr.ss_family)
-                    {
-                        struct sockaddr_in *saddr = (struct sockaddr_in *)&addr;
-                        inet_ntop(saddr->sin_family, &saddr->sin_addr, s, INET6_ADDRSTRLEN);
-                        port = saddr->sin_port;
-                    }
-                    else if (AF_INET6 == addr.ss_family)
-                    {
-                        struct sockaddr_in6 *saddr = (struct sockaddr_in6 *)&addr;
-                        inet_ntop(saddr->sin6_family, &saddr->sin6_addr, s, INET6_ADDRSTRLEN);
-                        port = saddr->sin6_port;
-                    }
-                    fprintf(stderr, "%d bytes received from [%s]:%hu\r\n", numBytes, s, ntohs(port));
+                if (AF_INET == addr.ss_family)
+                {
+                    struct sockaddr_in *saddr = (struct sockaddr_in *)&addr;
+                    inet_ntop(saddr->sin_family, &saddr->sin_addr, s, INET6_ADDRSTRLEN);
+                    port = saddr->sin_port;
+                }
+                else if (AF_INET6 == addr.ss_family)
+                {
+                    struct sockaddr_in6 *saddr = (struct sockaddr_in6 *)&addr;
+                    inet_ntop(saddr->sin6_family, &saddr->sin6_addr, s, INET6_ADDRSTRLEN);
+                    port = saddr->sin6_port;
+                }
+                fprintf(stderr, "%d bytes received from [%s]:%hu\r\n", numBytes, s, ntohs(port));
 
                     /*
                      * Display it in the STDERR
                      */
-                    output_buffer(stderr, buffer, numBytes, 0);
+                output_buffer(stderr, buffer, numBytes, 0);
 
-                    connP = connection_find(data.connList, &addr, addrLen);
-                    if (connP != NULL)
-                    {
+                connP = connection_find(data.connList, &addr, addrLen);
+                if (connP != NULL)
+                {
                         /*
                          * Let liblwm2m respond to the query depending on the context
                          */
 #ifdef WITH_TINYDTLS
-                        int result = connection_handle_packet(connP, buffer, numBytes);
-                        if (0 != result)
-                        {
-                             printf("error handling message %d\n",result);
-                        }
-#else
-                        lwm2m_handle_packet(lwm2mH, buffer, numBytes, connP);
-#endif
-                        conn_s_updateRxStatistic(objArray[7], numBytes, false);
-                    }
-                    else
+                    int result = connection_handle_packet(connP, buffer, numBytes);
+                    if (0 != result)
                     {
-                        fprintf(stderr, "received bytes ignored!\r\n");
-                    }
-                }
+                     printf("error handling message %d\n",result);
+                 }
+#else
+                 lwm2m_handle_packet(lwm2mH, buffer, numBytes, connP);
+#endif
+                 conn_s_updateRxStatistic(objArray[7], numBytes, false);
+             }
+             else
+             {
+                fprintf(stderr, "received bytes ignored!\r\n");
             }
+        }
+    }
 
             /*
              * If the event happened on the SDTIN
              */
-            else if (FD_ISSET(STDIN_FILENO, &readfds))
-            {
-                numBytes = read(STDIN_FILENO, buffer, MAX_PACKET_SIZE - 1);
+    else if (FD_ISSET(STDIN_FILENO, &readfds))
+    {
+        numBytes = read(STDIN_FILENO, buffer, MAX_PACKET_SIZE - 1);
 
-                if (numBytes > 1)
-                {
-                    buffer[numBytes] = 0;
+        if (numBytes > 1)
+        {
+            buffer[numBytes] = 0;
                     /*
                      * We call the corresponding callback of the typed command passing it the buffer for further arguments
                      */
-                    handle_command(commands, (char*)buffer);
-                }
-                if (g_quit == 0)
-                {
-                    fprintf(stdout, "\r\n> ");
-                    fflush(stdout);
-                }
-                else
-                {
-                    fprintf(stdout, "\r\n");
-                }
-            }
+            handle_command(commands, (char*)buffer);
         }
-
-
-
-        api_new_connection(api);
-
-        for( api_operation * apioper = api->operation;
-             apioper != NULL; 
-             apioper = apioper->next )
+        if (g_quit == 0)
         {
-
-            if (apioper->sock <= 0) continue;
-
-            char response[1024] = "\0";
-
-            if ( api_operation_check(apioper) )
-            {
-                if ( apioper->has_message )
-                {
-                    if ( strcmp(apioper->command, "change") == 0 )
-                    {
-                        int result;
-                        lwm2m_uri_t uri;
-                        lwm2m_stringToUri(apioper->url, strlen(apioper->url), &uri);
-                        handle_value_changed(lwm2mH, &uri, apioper->value, strlen(apioper->value));
-                    }
-                }   
-
-                if (apioper->closed)
-                    api_remove_operation(api, apioper);
-
-            }
+            fprintf(stdout, "\r\n> ");
+            fflush(stdout);
+        }
+        else
+        {
+            fprintf(stdout, "\r\n");
         }
     }
+}
+
+
+API_step();
+}
 
     /*
      * Finally when the loop is left smoothly - asked by user in the command line interface - we unregister our client from it
      */
-    if (g_quit == 1)
-    {
+if (g_quit == 1)
+{
 #ifdef WITH_TINYDTLS
-        free(pskBuffer);
+    free(pskBuffer);
 #endif
 
 #ifdef LWM2M_BOOTSTRAP
-        close_backup_object();
+    close_backup_object();
 #endif
-        lwm2m_close(lwm2mH);
-    }
-    close(data.sock);
-    connection_free(data.connList);
+    lwm2m_close(lwm2mH);
+}
+close(data.sock);
+connection_free(data.connList);
 
-    clean_security_object(objArray[0]);
-    lwm2m_free(objArray[0]);
-    clean_server_object(objArray[1]);
-    lwm2m_free(objArray[1]);
-    free_object_device(objArray[2]);
-    free_object_firmware(objArray[3]);
-    free_object_location(objArray[4]);
-    free_test_object(objArray[5]);
-    free_object_conn_m(objArray[6]);
-    free_object_conn_s(objArray[7]);
-    acl_ctrl_free_object(objArray[8]);
-
+clean_security_object(objArray[0]);
+lwm2m_free(objArray[0]);
+clean_server_object(objArray[1]);
+lwm2m_free(objArray[1]);
+free_object_device(objArray[2]);
+free_object_firmware(objArray[3]);
+free_object_location(objArray[4]);
+free_test_object(objArray[5]);
+free_object_conn_m(objArray[6]);
+free_object_conn_s(objArray[7]);
+acl_ctrl_free_object(objArray[8]);
+free_object_DSDinamic(objArray[9]);
 #ifdef MEMORY_TRACE
-    if (g_quit == 1)
-    {
-        trace_print(0, 1);
-    }
+if (g_quit == 1)
+{
+    trace_print(0, 1);
+}
 #endif
 
-    return 0;
+return 0;
+}
+void API_command_change (api_handler_t * api,api_operation_t * apioper,void * userData){
+    printf("ENTRANDO A CHANGE\n");
+    int result;
+    lwm2m_uri_t uri;
+    lwm2m_stringToUri(apioper->url, strlen(apioper->url), &uri);
+    handle_value_changed(api->lwm2mH, &uri, apioper->value, strlen(apioper->value),api);
+
+    apioper->closed=1;
+    printf("saliendo de CHANGE\n");
+}
+void API_command_subscribe (api_handler_t * api,api_operation_t * apioper,void * userData){
+
+}
+void API_command_get (api_handler_t * api,api_operation_t * apioper,void * userData)
+{
+    lwm2m_uri_t uriP;
+    int result;
+    lwm2m_data_t * dataP = NULL;
+    int size = 0;
+    if(apioper->url[strlen(apioper->url)-1]=='/')
+        apioper->url[strlen(apioper->url)-1]=0;
+    printf("URL%s\n",apioper->url );
+    printf("HOLA1_%d_%d_%d_\n",lwm2m_stringToUri(apioper->url, strlen(apioper->url), &uriP),LWM2M_URI_IS_SET_INSTANCE(&uriP),LWM2M_URI_IS_SET_RESOURCE(&uriP));
+    result=lwm2m_stringToUri(apioper->url, strlen(apioper->url), &uriP);
+    if(result!=0
+        &&LWM2M_URI_IS_SET_INSTANCE(&uriP)
+        &&LWM2M_URI_IS_SET_RESOURCE(&uriP))
+    {
+        result = object_readData(api->lwm2mH, &uriP, &size, &dataP);
+        if (COAP_205_CONTENT == result
+            &&size==1)
+        {
+            int bufflen=strlen("{\"bn\":\"\",\"e\":[{\"n\":\"\",\"sv\":\"\"}]}")+MAX_SIZE;
+            char buffer[MAX_SIZE];
+            char buffer2[bufflen];
+            int i;
+            memset(buffer,0,MAX_SIZE);
+            memset(buffer2,0,bufflen);
+            switch(dataP->type){
+                case LWM2M_TYPE_STRING:
+                for(i=0;i<dataP->value.asBuffer.length;i++) 
+                    buffer[i]=(dataP->value.asBuffer.buffer)[i];
+                buffer[i]=0;
+                printf("sTRING_%s_\n",buffer);
+                break;
+                case LWM2M_TYPE_INTEGER:
+                printf("INTEGER\n");
+                sprintf(buffer,"%d\0",dataP->value.asInteger);
+                break;
+                case LWM2M_TYPE_FLOAT:
+                printf("FLOAT\n");
+                sprintf(buffer,"%f\0",dataP->value.asFloat);
+                break;
+                case LWM2M_TYPE_BOOLEAN:
+                printf("BOOLEAN\n");
+                sprintf(buffer,"%s\0",(dataP->value.asBoolean==true? "true":"false"));
+                break;
+                default:
+                printf("NO SE GG\n");
+                break;
+            }
+            sprintf(buffer2,"{\"bn\":\"%s\",\"e\":[{\"n\":\"%d\",\"sv\":\"%s\"}]}",apioper->url,uriP.resourceId,buffer);
+            api_write(apioper, buffer2);
+        }
+    }
+    lwm2m_data_free(size, dataP);
+    apioper->closed=1;
 }

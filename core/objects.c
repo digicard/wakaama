@@ -59,9 +59,10 @@
 #include <string.h>
 #include <stdio.h>
 
+#include "../examples/shared/api.h"
 
 uint8_t object_checkReadable(lwm2m_context_t * contextP,
-                             lwm2m_uri_t * uriP)
+   lwm2m_uri_t * uriP)
 {
     uint8_t result;
     lwm2m_object_t * targetP;
@@ -92,7 +93,7 @@ uint8_t object_checkReadable(lwm2m_context_t * contextP,
 }
 
 uint8_t object_checkNumeric(lwm2m_context_t * contextP,
-                            lwm2m_uri_t * uriP)
+    lwm2m_uri_t * uriP)
 {
     uint8_t result;
     lwm2m_object_t * targetP;
@@ -117,10 +118,10 @@ uint8_t object_checkNumeric(lwm2m_context_t * contextP,
     {
         switch (dataP->type)
         {
-        case LWM2M_TYPE_INTEGER:
-        case LWM2M_TYPE_FLOAT:
+            case LWM2M_TYPE_INTEGER:
+            case LWM2M_TYPE_FLOAT:
             break;
-        default:
+            default:
             result = COAP_405_METHOD_NOT_ALLOWED;
         }
     }
@@ -131,9 +132,9 @@ uint8_t object_checkNumeric(lwm2m_context_t * contextP,
 }
 
 uint8_t object_readData(lwm2m_context_t * contextP,
-                        lwm2m_uri_t * uriP,
-                        int * sizeP,
-                        lwm2m_data_t ** dataP)
+    lwm2m_uri_t * uriP,
+    int * sizeP,
+    lwm2m_data_t ** dataP)
 {
     uint8_t result;
     lwm2m_object_t * targetP;
@@ -200,10 +201,10 @@ uint8_t object_readData(lwm2m_context_t * contextP,
 }
 
 uint8_t object_read(lwm2m_context_t * contextP,
-                    lwm2m_uri_t * uriP,
-                    lwm2m_media_type_t * formatP,
-                    uint8_t ** bufferP,
-                    size_t * lengthP)
+    lwm2m_uri_t * uriP,
+    lwm2m_media_type_t * formatP,
+    uint8_t ** bufferP,
+    size_t * lengthP)
 {
     uint8_t result;
     lwm2m_data_t * dataP = NULL;
@@ -233,10 +234,10 @@ uint8_t object_read(lwm2m_context_t * contextP,
 }
 
 uint8_t object_write(lwm2m_context_t * contextP,
-                     lwm2m_uri_t * uriP,
-                     lwm2m_media_type_t format,
-                     uint8_t * buffer,
-                     size_t length)
+   lwm2m_uri_t * uriP,
+   lwm2m_media_type_t format,
+   uint8_t * buffer,
+   size_t length)
 {
     uint8_t result = NO_ERROR;
     lwm2m_object_t * targetP;
@@ -264,6 +265,12 @@ uint8_t object_write(lwm2m_context_t * contextP,
     if (result == NO_ERROR)
     {
         result = targetP->writeFunc(uriP->instanceId, size, dataP, targetP);
+        if(result==COAP_204_CHANGED){
+            API_send_subscribe_change(API_list_search(0),
+                    uriP,
+                    buffer,
+                    length);
+        }
         lwm2m_data_free(size, dataP);
     }
 
@@ -273,9 +280,9 @@ uint8_t object_write(lwm2m_context_t * contextP,
 }
 
 uint8_t object_execute(lwm2m_context_t * contextP,
-                       lwm2m_uri_t * uriP,
-                       uint8_t * buffer,
-                       size_t length)
+ lwm2m_uri_t * uriP,
+ uint8_t * buffer,
+ size_t length)
 {
     lwm2m_object_t * targetP;
 
@@ -289,10 +296,10 @@ uint8_t object_execute(lwm2m_context_t * contextP,
 }
 
 uint8_t object_create(lwm2m_context_t * contextP,
-                      lwm2m_uri_t * uriP,
-                      lwm2m_media_type_t format,
-                      uint8_t * buffer,
-                      size_t length)
+  lwm2m_uri_t * uriP,
+  lwm2m_media_type_t format,
+  uint8_t * buffer,
+  size_t length)
 {
     lwm2m_object_t * targetP;
     lwm2m_data_t * dataP = NULL;
@@ -315,11 +322,11 @@ uint8_t object_create(lwm2m_context_t * contextP,
 
     switch (dataP[0].type)
     {
-    case LWM2M_TYPE_OBJECT:
+        case LWM2M_TYPE_OBJECT:
         result = COAP_400_BAD_REQUEST;
         goto exit;
 
-    case LWM2M_TYPE_OBJECT_INSTANCE:
+        case LWM2M_TYPE_OBJECT_INSTANCE:
         if (size != 1)
         {
             result = COAP_400_BAD_REQUEST;
@@ -336,7 +343,7 @@ uint8_t object_create(lwm2m_context_t * contextP,
         uriP->flag |= LWM2M_URI_FLAG_INSTANCE_ID;
         break;
 
-    default:
+        default:
         if (!LWM2M_URI_IS_SET_INSTANCE(uriP))
         {
             uriP->instanceId = lwm2m_list_newId(targetP->instanceList);
@@ -346,7 +353,7 @@ uint8_t object_create(lwm2m_context_t * contextP,
         break;
     }
 
-exit:
+    exit:
     lwm2m_data_free(size, dataP);
 
     LOG_ARG("result: %u.%2u", (result & 0xFF) >> 5, (result & 0x1F));
@@ -355,7 +362,7 @@ exit:
 }
 
 uint8_t object_delete(lwm2m_context_t * contextP,
-                      lwm2m_uri_t * uriP)
+  lwm2m_uri_t * uriP)
 {
     lwm2m_object_t * objectP;
     uint8_t result;
@@ -402,10 +409,10 @@ uint8_t object_delete(lwm2m_context_t * contextP,
 }
 
 uint8_t object_discover(lwm2m_context_t * contextP,
-                        lwm2m_uri_t * uriP,
-                        lwm2m_server_t * serverP,
-                        uint8_t ** bufferP,
-                        size_t * lengthP)
+    lwm2m_uri_t * uriP,
+    lwm2m_server_t * serverP,
+    uint8_t ** bufferP,
+    size_t * lengthP)
 {
     uint8_t result;
     lwm2m_object_t * targetP;
@@ -481,8 +488,8 @@ uint8_t object_discover(lwm2m_context_t * contextP,
 }
 
 bool object_isInstanceNew(lwm2m_context_t * contextP,
-                          uint16_t objectId,
-                          uint16_t instanceId)
+  uint16_t objectId,
+  uint16_t instanceId)
 {
     lwm2m_object_t * targetP;
 
@@ -500,8 +507,8 @@ bool object_isInstanceNew(lwm2m_context_t * contextP,
 }
 
 static int prv_getObjectTemplate(uint8_t * buffer,
-                                 size_t length,
-                                 uint16_t id)
+   size_t length,
+   uint16_t id)
 {
     int index;
     int result;
@@ -534,7 +541,7 @@ int object_getRegisterPayloadBufferLength(lwm2m_context_t * contextP)
     index = strlen(REG_START);
 
     if ((contextP->altPath != NULL)
-     && (contextP->altPath[0] != 0))
+       && (contextP->altPath[0] != 0))
     {
         index += strlen(contextP->altPath);
     }
@@ -594,8 +601,8 @@ int object_getRegisterPayloadBufferLength(lwm2m_context_t * contextP)
 }
 
 int object_getRegisterPayload(lwm2m_context_t * contextP,
-                           uint8_t * buffer,
-                           size_t bufferLen)
+ uint8_t * buffer,
+ size_t bufferLen)
 {
     size_t index;
     int result;
@@ -610,7 +617,7 @@ int object_getRegisterPayload(lwm2m_context_t * contextP,
     index += result;
 
     if ((contextP->altPath != NULL)
-     && (contextP->altPath[0] != 0))
+       && (contextP->altPath[0] != 0))
     {
         result = utils_stringCopy((char *)buffer + index, bufferLen - index, contextP->altPath);
     }
@@ -679,7 +686,7 @@ int object_getRegisterPayload(lwm2m_context_t * contextP,
 }
 
 static lwm2m_list_t * prv_findServerInstance(lwm2m_object_t * objectP,
-                                             uint16_t shortID)
+   uint16_t shortID)
 {
     lwm2m_list_t * instanceP;
 
@@ -717,8 +724,8 @@ static lwm2m_list_t * prv_findServerInstance(lwm2m_object_t * objectP,
 }
 
 static int prv_getMandatoryInfo(lwm2m_object_t * objectP,
-                                uint16_t instanceID,
-                                lwm2m_server_t * targetP)
+    uint16_t instanceID,
+    lwm2m_server_t * targetP)
 {
     lwm2m_data_t * dataP;
     int size;
@@ -783,7 +790,7 @@ int object_getServers(lwm2m_context_t * contextP, bool checkOnly)
     while (securityInstP != NULL)
     {
         if (LWM2M_LIST_FIND(contextP->bootstrapServerList, securityInstP->id) == NULL
-         && LWM2M_LIST_FIND(contextP->serverList, securityInstP->id) == NULL)
+           && LWM2M_LIST_FIND(contextP->serverList, securityInstP->id) == NULL)
         {
             // This server is new. eg created by last bootstrap
 
@@ -888,8 +895,8 @@ int object_getServers(lwm2m_context_t * contextP, bool checkOnly)
 }
 
 uint8_t object_createInstance(lwm2m_context_t * contextP,
-                                    lwm2m_uri_t * uriP,
-                                    lwm2m_data_t * dataP)
+    lwm2m_uri_t * uriP,
+    lwm2m_data_t * dataP)
 {
     lwm2m_object_t * targetP;
 
@@ -906,8 +913,8 @@ uint8_t object_createInstance(lwm2m_context_t * contextP,
 }
 
 uint8_t object_writeInstance(lwm2m_context_t * contextP,
-                            lwm2m_uri_t * uriP,
-                            lwm2m_data_t * dataP)
+    lwm2m_uri_t * uriP,
+    lwm2m_data_t * dataP)
 {
     lwm2m_object_t * targetP;
 
@@ -919,6 +926,7 @@ uint8_t object_writeInstance(lwm2m_context_t * contextP,
     {
         return COAP_405_METHOD_NOT_ALLOWED;
     }
+    fprintf(stderr, "value changed!\n");
 
     return targetP->writeFunc(dataP->id, dataP->value.asChildren.count, dataP->value.asChildren.array, targetP);
 }

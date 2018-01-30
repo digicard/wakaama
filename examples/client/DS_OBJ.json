@@ -1,0 +1,233 @@
+{
+	"objectID": "20000",
+	"objectName": "Vertx",
+	"objectMandatory" : "true",
+	"objectInstances": "multiple",
+	"resources" : [
+		{
+			"resourceID": "0",
+			"resourceName": "Mac",
+			"resourceType": "string",
+			"resourceInstances": "single",
+			"resourceRequired": "mandatory",
+			"resourceOperations": "rw"
+		},{
+			"resourceID": "1",
+			"resourceName": "Ip",
+			"resourceType": "string",
+			"resourceInstances": "single",
+			"resourceRequired": "mandatory",
+			"resourceOperations": "rw"
+		},{
+			"resourceID": "2",
+			"resourceName": "DateTime",
+			"resourceType": "string",
+			"resourceInstances": "single",
+			"resourceRequired": "mandatory",
+			"resourceOperations": "rw"
+		},{
+			"resourceID": "3",
+			"resourceName": "Available",
+			"resourceType": "string",
+			"resourceInstances": "single",
+			"resourceRequired": "mandatory",
+			"resourceOperations": "rw"
+		},{
+			"resourceID": "4",
+			"resourceName": "Hostname",
+			"resourceType": "string",
+			"resourceInstances": "single",
+			"resourceRequired": "mandatory",
+			"resourceOperations": "rw"
+		},{
+			"resourceID": "5",
+			"resourceName": "ControllerId",
+			"resourceType": "string",
+			"resourceInstances": "single",
+			"resourceRequired": "mandatory",
+			"resourceOperations": "rw"
+		},{
+			"resourceID": "6",
+			"resourceName": "ControllerType",
+			"resourceType": "string",
+			"resourceInstances": "single",
+			"resourceRequired": "mandatory",
+			"resourceOperations": "rw"
+		},{
+			"resourceID": "7",
+			"resourceName": "VersionApp",
+			"resourceType": "string",
+			"resourceInstances": "single",
+			"resourceRequired": "mandatory",
+			"resourceOperations": "rw"
+		},{
+			"resourceID": "8",
+			"resourceName": "VersionDate",
+			"resourceType": "string",
+			"resourceInstances": "single",
+			"resourceRequired": "mandatory",
+			"resourceOperations": "rw"
+		},{
+			"resourceID": "9",
+			"resourceName": "Events",
+			"resourceType": "string",
+			"resourceInstances": "single",
+			"resourceRequired": "mandatory",
+			"resourceOperations": "rw"
+		},{
+			"resourceID": "10",
+			"resourceName": "Card",
+			"resourceType": "string",
+			"resourceInstances": "single",
+			"resourceRequired": "mandatory",
+			"resourceOperations": "rw"
+		},{
+			"resourceID": "11",
+			"resourceName": "DoorGroups",
+			"resourceType": "string",
+			"resourceInstances": "single",
+			"resourceRequired": "mandatory",
+			"resourceOperations": "rw"
+		},{
+			"resourceID": "12",
+			"resourceName": "Readers",
+			"resourceType": "string",
+			"resourceInstances": "single",
+			"resourceRequired": "mandatory",
+			"resourceOperations": "rw"
+		},{
+			"resourceID": "13",
+			"resourceName": "DoorPriority",
+			"resourceType": "string",
+			"resourceInstances": "single",
+			"resourceRequired": "mandatory",
+			"resourceOperations": "rw"
+		},{
+			"resourceID": "14",
+			"resourceName": "CardSets",
+			"resourceType": "string",
+			"resourceInstances": "single",
+			"resourceRequired": "mandatory",
+			"resourceOperations": "rw"
+		},{
+			"resourceID": "15",
+			"resourceName": "Elevator",
+			"resourceType": "string",
+			"resourceInstances": "single",
+			"resourceRequired": "mandatory",
+			"resourceOperations": "rw"
+		},{
+			"resourceID": "16",
+			"resourceName": "CardFormats",
+			"resourceType": "string",
+			"resourceInstances": "single",
+			"resourceRequired": "mandatory",
+			"resourceOperations": "rw"
+		},{
+			"resourceID": "17",
+			"resourceName": "AdjacentReaders",
+			"resourceType": "string",
+			"resourceInstances": "single",
+			"resourceRequired": "mandatory",
+			"resourceOperations": "rw"
+		},{
+			"resourceID": "18",
+			"resourceName": "ConfigurationFile",
+			"resourceType": "string",
+			"resourceInstances": "single",
+			"resourceRequired": "mandatory",
+			"resourceOperations": "rw"
+		},{
+			"resourceID": "19",
+			"resourceName": "MessagePriority",
+			"resourceType": "string",
+			"resourceInstances": "single",
+			"resourceRequired": "mandatory",
+			"resourceOperations": "rw"
+		},{
+			"resourceID": "20",
+			"resourceName": "NetworkTimeProtocol",
+			"resourceType": "string",
+			"resourceInstances": "single",
+			"resourceRequired": "mandatory",
+			"resourceOperations": "rw"
+		},{
+			"resourceID": "21",
+			"resourceName": "OutputGroup",
+			"resourceType": "string",
+			"resourceInstances": "single",
+			"resourceRequired": "mandatory",
+			"resourceOperations": "rw"
+		},{
+			"resourceID": "22",
+			"resourceName": "PeerToPeerReaders",
+			"resourceType": "string",
+			"resourceInstances": "single",
+			"resourceRequired": "mandatory",
+			"resourceOperations": "rw"
+		},{
+			"resourceID": "23",
+			"resourceName": "Peers",
+			"resourceType": "string",
+			"resourceInstances": "single",
+			"resourceRequired": "mandatory",
+			"resourceOperations": "rw"
+		},{
+			"resourceID": "24",
+			"resourceName": "SavedOutputs",
+			"resourceType": "string",
+			"resourceInstances": "single",
+			"resourceRequired": "mandatory",
+			"resourceOperations": "rw"
+		},{
+			"resourceID": "25",
+			"resourceName": "Rs485Configuration",
+			"resourceType": "string",
+			"resourceInstances": "single",
+			"resourceRequired": "mandatory",
+			"resourceOperations": "rw"
+		},{
+			"resourceID": "26",
+			"resourceName": "InterfacePanel",
+			"resourceType": "string",
+			"resourceInstances": "single",
+			"resourceRequired": "mandatory",
+			"resourceOperations": "rw"
+		},{
+			"resourceID": "27",
+			"resourceName": "InterfaceTypes",
+			"resourceType": "string",
+			"resourceInstances": "single",
+			"resourceRequired": "mandatory",
+			"resourceOperations": "rw"
+		},{
+			"resourceID": "28",
+			"resourceName": "KeypadTranslation",
+			"resourceType": "string",
+			"resourceInstances": "single",
+			"resourceRequired": "mandatory",
+			"resourceOperations": "rw"
+		},{
+			"resourceID": "29",
+			"resourceName": "Schedules",
+			"resourceType": "string",
+			"resourceInstances": "single",
+			"resourceRequired": "mandatory",
+			"resourceOperations": "rw"
+		},{
+			"resourceID": "30",
+			"resourceName": "AccessGroups",
+			"resourceType": "string",
+			"resourceInstances": "single",
+			"resourceRequired": "mandatory",
+			"resourceOperations": "rw"
+		},{
+			"resourceID": "31",
+			"resourceName": "CardHolderStatus",
+			"resourceType": "string",
+			"resourceInstances": "single",
+			"resourceRequired": "mandatory",
+			"resourceOperations": "rw"
+		}
+	]
+}

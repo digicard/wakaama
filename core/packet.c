@@ -92,6 +92,9 @@ Contains code snippets which are:
 
 #include <stdio.h>
 
+#ifdef LWM2M_SERVER_MODE
+#include "./../shared/api.h"
+#endif
 
 static void handle_reset(lwm2m_context_t * contextP,
                          void * fromSessionH,
@@ -210,9 +213,9 @@ void lwm2m_handle_packet(lwm2m_context_t * contextP,
     coap_error_code = coap_parse_message(message, buffer, (uint16_t)length);
     if (coap_error_code == NO_ERROR)
     {
-        LOG_ARG("Parsed: ver %u, type %u, tkl %u, code %u.%.2u, mid %u, Content type: %d",
+        LOG_ARG("Parsed: ver %u, type %u, tkl %u, code %u.%.2u, mid %u, Content type: %d\n",
                 message->version, message->type, message->token_len, message->code >> 5, message->code & 0x1F, message->mid, message->content_type);
-        LOG_ARG("Payload: %.*s", message->payload_len, message->payload);
+        LOG_ARG("Payload: %.*s\n", message->payload_len, message->payload);
         if (message->code >= COAP_GET && message->code <= COAP_DELETE)
         {
             uint32_t block_num = 0;
@@ -388,6 +391,7 @@ void lwm2m_handle_packet(lwm2m_context_t * contextP,
                 break;
             }
         } /* Request or Response */
+
         coap_free_header(message);
     } /* if (parsed correctly) */
     else

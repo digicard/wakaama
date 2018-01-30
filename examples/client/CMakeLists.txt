@@ -25,10 +25,13 @@ SET(SOURCES
     ${CMAKE_CURRENT_LIST_DIR}/object_connectivity_stat.c
     ${CMAKE_CURRENT_LIST_DIR}/object_access_control.c
     ${CMAKE_CURRENT_LIST_DIR}/test_object.c
+    ${CMAKE_CURRENT_LIST_DIR}/object_DSDinamic.c
     )
 
 add_executable(${PROJECT_NAME} ${SOURCES} ${WAKAAMA_SOURCES} ${SHARED_SOURCES})
 
+# link the libraries to the executable
+target_link_libraries (${PROJECT_NAME} cjson)
 # Add WITH_LOGS to debug variant
 set_property(TARGET ${PROJECT_NAME} APPEND PROPERTY COMPILE_DEFINITIONS $<$<CONFIG:Debug>:WITH_LOGS>)
 
